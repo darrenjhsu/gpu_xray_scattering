@@ -1,0 +1,2 @@
+nvcc -o test.so --compiler-options='-fPIC' -use_fast_math -lineinfo --ptxas-options=-v -shared XSMD.cu
+
