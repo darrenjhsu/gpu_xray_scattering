@@ -1,15 +1,16 @@
 import ctypes
 from ctypes import *
-import sys
+import sys, os
 
-lib_path = 'gpu_xray_scattering/bin/XS.so' 
+lib_path = os.path.dirname(os.path.realpath(__file__)) + '/bin/XS.so' 
 
 try:
     xs = CDLL(lib_path)
-    print('XS loaded successfully')
+#    print('XS loaded successfully')
 except Exception as e:
     print('CDLL failed')
     print(e)
+    exit()
 
 xs_calc = xs.xray_scattering
 xs_calc.restype = None
@@ -21,7 +22,7 @@ def xray_scatter(coord, ele, q,
     num_atom = len(ele)
     num_coord = 3 * num_atom
     num_q = len(q)
-    print(f'num atom: {num_atom}, num_coord: {num_coord}, num q: {num_q}')
+    #print(f'num atom: {num_atom}, num_coord: {num_coord}, num q: {num_q}')
     #c_coord = (c_float * num_coord).from_buffer(coord)
     #c_ele = (c_int * num_atom).from_buffer(ele)
     #c_q = (c_float * num_q).from_buffer(q)
