@@ -193,7 +193,7 @@ __global__ void sum_V (
         }
     }
     __syncthreads();
-    if (threadIdx.x == 0) printf("Convex contact area = %.3f A^2.\n", V_s[0]);
+    //if (threadIdx.x == 0) printf("Convex contact area = %.3f A^2.\n", V_s[0]);
 }
 
 __global__ void FF_calc (

@@ -219,10 +219,10 @@ void xray_scattering (
 
     cudaMemcpy(S_calc, d_S_calc, size_q,     cudaMemcpyDeviceToHost);
 
-    printf("S_calc: ");
+    /*printf("S_calc: ");
     for (int ii = 0; ii < num_q; ii++) {
         printf("%.3f, ", S_calc[ii]);
-    }
+    }*/
    
 
     cudaDeviceSynchronize();
@@ -246,7 +246,7 @@ void xray_scattering (
     gettimeofday(&tv2, NULL);
     double time_in_mill = 
          (tv2.tv_sec - tv1.tv_sec) * 1000.0 + (tv2.tv_usec - tv1.tv_usec) / 1000.0 ;
-    printf("Time elapsed = %.3f ms.\n", time_in_mill);
+    //printf("Time elapsed = %.3f ms.\n", time_in_mill);
 
 }
 }
