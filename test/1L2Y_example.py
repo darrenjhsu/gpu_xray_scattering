@@ -1,0 +1,27 @@
+
+import numpy as np
+from gpu_xray_scattering import XS
+from gpu_xray_scattering.Molecule import Molecule
+
+def readPDB(fname): 
+    # Just a temporary reader 
+    # Use your favorite molecule/trajectory processor
+    coords = []
+    elements = []
+    with open(fname, 'r') as f:
+        cont = f.readlines()
+    for line in cont:
+        if 'ATOM' in line:
+            coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+            elements.append(line[76:78].strip())
+    return np.array(coords), np.array(elements) 
+
+pro_coord, pro_ele = readPDB('1L2Y.pdb')
+print(pro_ele)
+pro = Molecule(coordinates=pro_coord, elements=pro_ele)
+
+scatter = XS.Scatter()
+S_calc = scatter.scatter(pro, timing=True)
+S_calc = scatter.scatter(pro, timing=True)
+
+print(S_calc[:5])
