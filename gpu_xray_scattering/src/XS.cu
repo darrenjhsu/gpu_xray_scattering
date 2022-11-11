@@ -6,7 +6,7 @@
 #include "kernel.cu"
 #include "WaasKirf.hh"
 #include "vdW.hh"
-#include "XSMD.hh"
+#include "XS.hh"
 #define PI 3.14159265359 
 
 
