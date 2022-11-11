@@ -181,7 +181,6 @@ __global__ void sum_V (
     for (int ii = threadIdx.x; ii < num_atom2; ii += blockDim.x) {
         if (ii < num_atom) {
             int atomi = Ele[ii];
-            if (atomi > 5) atomi = 0;
             V_s[ii] = V[ii] * 4.0 * PI * (vdW[atomi]+sol_s) * (vdW[atomi]+sol_s);
         } else {
             V_s[ii] = 0.0;

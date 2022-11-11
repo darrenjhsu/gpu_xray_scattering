@@ -6,9 +6,11 @@
 #include "kernel.cu"
 #include "WaasKirf.hh"
 #include "vdW.hh"
+#include "XSMD.hh"
 #define PI 3.14159265359 
 
 
+extern "C" {
 void xray_scattering (
     int num_atom,    // number of atoms Na
     float *coord,    // coordinates     3Na
@@ -28,8 +30,9 @@ void xray_scattering (
     gettimeofday(&tv1, NULL);
 
     // In this code pointers with d_ are device pointers. 
-    int   num_atom2 = (num_atom + 2047)/2048;
-    int   num_q2    = (num_q + 31) / 32;
+    int   num_atom2 = (num_atom + 2047)/2048 * 2048;
+    int   num_q2    = (num_q + 31) / 32 * 32;
+    //printf("num_atom2 = %d, num_q2 = %d\n", num_atom2, num_q2);
 
     // Declare cuda pointers //
     float *d_coord;          // Coordinates 3 x num_atom
@@ -67,7 +70,7 @@ void xray_scattering (
     int size_vdW         = (num_ele + 1) * sizeof(float); // +1 for solvent
 
     // Allocate local memories
-    S_calc = (float *)malloc(size_q);
+    // S_calc = (float *)malloc(size_q);
 
     // Allocate cuda memories
     cudaMalloc((void **)&d_coord,      size_coord); // 40 KB
@@ -99,7 +102,7 @@ void xray_scattering (
     cudaMemcpy(d_coord,      coord,      size_coord, cudaMemcpyHostToDevice);
     cudaMemcpy(d_vdW,        vdW,        size_vdW,   cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele,        Ele,        size_atom,  cudaMemcpyHostToDevice);
-    cudaMemcpy(d_q,          q,          size_q, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_q,          q,          size_q,     cudaMemcpyHostToDevice);
     cudaMemcpy(d_WK,         WK,         size_WK,    cudaMemcpyHostToDevice);
 
 
@@ -214,7 +217,13 @@ void xray_scattering (
        exit(-1);
     }
 
-    cudaMemcpyAsync(S_calc, d_S_calc, size_q,     cudaMemcpyDeviceToHost);
+    cudaMemcpy(S_calc, d_S_calc, size_q,     cudaMemcpyDeviceToHost);
+
+    printf("S_calc: ");
+    for (int ii = 0; ii < num_q; ii++) {
+        printf("%.3f, ", S_calc[ii]);
+    }
+   
 
     cudaDeviceSynchronize();
     error = cudaGetLastError();
@@ -234,10 +243,10 @@ void xray_scattering (
     cudaFree(d_close_flag); cudaFree(d_close_num); cudaFree(d_close_idx);
     cudaFree(d_vdW);
     cudaFree(d_FF_table); cudaFree(d_FF_full);
-
     gettimeofday(&tv2, NULL);
     double time_in_mill = 
          (tv2.tv_sec - tv1.tv_sec) * 1000.0 + (tv2.tv_usec - tv1.tv_usec) / 1000.0 ;
     printf("Time elapsed = %.3f ms.\n", time_in_mill);
 
+}
 }

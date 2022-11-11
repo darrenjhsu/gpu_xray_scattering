@@ -15,7 +15,7 @@ void xray_scattering (
     float r_m,       // exclusion radius for C1 (1.62)
     float rho,       // water electron density (e-/A^3, 0.334 at 20 C)
     float c1,        // hyperparameter for C1 solvent exclusion term (1.0)
-    float c2,        // hyperparameter for hydration shell (2.0)
-)
+    float c2        // hyperparameter for hydration shell (2.0)
+);
 
 
