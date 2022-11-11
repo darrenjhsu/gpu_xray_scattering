@@ -16,12 +16,14 @@ def readPDB(fname):
             elements.append(line[76:78].strip())
     return np.array(coords), np.array(elements) 
 
-pro_coord, pro_ele = readPDB('1L2Y.pdb')
-print(pro_ele)
+pro_coord, pro_ele = readPDB('1L2Y.pdb') # Or generate numpy arrays yourself
+
+# Molecule class takes numpy array for coordinates
+# and any kind of lists as elements
 pro = Molecule(coordinates=pro_coord, elements=pro_ele)
 
 scatter = XS.Scatter()
 S_calc = scatter.scatter(pro, timing=True)
-S_calc = scatter.scatter(pro, timing=True)
+S_calc = scatter.scatter(pro, timing=True) # Second time is much faster
 
 print(S_calc[:5])
