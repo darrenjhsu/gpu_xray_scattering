@@ -2,7 +2,7 @@ import ctypes
 from ctypes import *
 import sys
 
-lib_path = 'gpu_xray_scattering/bin/XSMD.so' 
+lib_path = 'gpu_xray_scattering/bin/XS.so' 
 
 try:
     xs = CDLL(lib_path)
