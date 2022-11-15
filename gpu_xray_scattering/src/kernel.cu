@@ -350,4 +350,147 @@ __global__ void __launch_bounds__(1024,2) scat_calc (
 }
 
 
+__global__ void __launch_bounds__(1024,2) scat_calc_oa (
+    float *coord, 
+    int *Ele,
+    float *q,
+    float *S_calc, 
+    int num_atom,   
+    int num_q,
+    int num_ele,   
+    float *S_calcc, 
+    int num_atom2,
+    float *FF_full,
+    int num_q_raster) {
 
+    float q_pt;
+
+    // raster of q points
+    // if user set num_q_raster > 1024,
+    // it'll get reduced to 1024 before the call
+    __shared__ float q_raster[3072];
+    
+
+    for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
+
+        q_pt = q[ii];
+        for (int jj = threadIdx.x; jj < num_q_raster; jj += blockDim.x) {
+            float h = 1.0 - (2.0 * (float)jj + 1.0) / (float)num_raster;
+            float p = acos(h);
+            float t = L * p; 
+            float xu = sin(p) * cos(t);
+            float yu = sin(p) * sin(t);
+            float zu = cos(p);
+            // q raster points
+            q_raster[jj*3] = q_pt * xu;
+            q_raster[jj*3+1] = q_pt * yu;
+            q_raster[jj*3+2] = q_pt * zu;
+
+        for (int jj = threadIdx.x; jj < num_q_raster; jj += blockDim.x) {
+            // for every atom jj
+            float qx = q_raster[3*jj];
+            float qy = q_raster[3*jj+1];
+            float qz = q_raster[3*jj+2];
+            float amp_cos = 0.0; // this q and this q raster point, summed over all atoms
+            float amp_sin = 0.0; // this q and this q raster point, summed over all atoms
+            for (int kk = 0; kk < num_atom; kk++) {
+                float FF = FF_full[ii * num_atom2 + kk];
+                float qrx = coord[3*kk] * qx;
+                float qry = coord[3*kk+1] * qy;
+                float qrz = coord[3*kk+2] * qz;
+                float qr = -sqrt(qrx*qrx+qry*qry+qrz*qrz);
+                amp_cos += FF * cos(qr);
+                amp_sin += FF * sin(qr);
+            }
+            S_calcc[ii*num_q_raster2+jj] = (amp_cos * amp_cos + amp_sin * amp_sin) / float(num_q_raster);
+        }
+        
+        // Tree-like summation of S_calcc to get S_calc
+        for (int stride = num_q_raster2 / 2; stride > 0; stride >>= 1) {
+            __syncthreads();
+            for(int iAccum = threadIdx.x; iAccum < stride; iAccum += blockDim.x) {
+                S_calcc[ii * num_q_raster2 + iAccum] += S_calcc[ii * num_q_raster2 + stride + iAccum];
+            }
+        }
+        __syncthreads();
+        
+        S_calc[ii] = S_calcc[ii * num_atom2];
+        __syncthreads();
+
+
+    }
+}
+
+__global__ void __launch_bounds__(1024,2) scat_calc_oa2 (
+    float *coord, 
+    int *Ele,
+    float *q,
+    float *S_calc, 
+    int num_atom,   
+    int num_q,
+    int num_ele,   
+    float *S_calcc, 
+    int num_atom2,
+    float *FF_full,
+    int num_q_raster) {
+
+    float q_pt;
+
+    // raster of q points
+    // if user set num_q_raster > 1024,
+    // it'll get reduced to 1024 before the call
+    __shared__ float q_raster[3072];
+    __shared__ float amp_cos[1024];
+    __shared__ float amp_sin[1024];
+    
+
+    for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
+
+        q_pt = q[ii];
+        for (int jj = threadIdx.x; jj < num_q_raster; jj += blockDim.x) {
+            float h = 1.0 - (2.0 * (float)jj + 1.0) / (float)num_raster;
+            float p = acos(h);
+            float t = L * p; 
+            float xu = sin(p) * cos(t);
+            float yu = sin(p) * sin(t);
+            float zu = cos(p);
+            // q raster points
+            q_raster[jj*3] = q_pt * xu;
+            q_raster[jj*3+1] = q_pt * yu;
+            q_raster[jj*3+2] = q_pt * zu;
+
+        for (int jj = threadIdx.x; jj < num_atom; jj += blockDim.x) {
+            // for every atom jj
+            float atomx = coord[3*jj];
+            float atomy = coord[3*jj+1];
+            float atomz = coord[3*jj+2];
+            float FF = FF_full[ii * num_atom2 + jj];
+            for (int kk = 0; kk < num_q_raster; kk++) {
+                float qrx = coord[3*kk] * q_raster[3*jj];
+                float qry = coord[3*kk+1] * q_raster[3*jj+1];
+                float qrz = coord[3*kk+2] * q_raster[3*jj+2];
+                float qr = -sqrt(qrx*qrx+qry*qry+qrz*qrz);
+                atomicAdd(&amp_cos[kk], FF * cos(qr));
+                atomicAdd(&amp_sin[kk], FF * sin(qr));
+            }
+        }
+
+        __syncthreads();
+        for (int jj = threadIdx.x; jj < num_q_raster; jj += blockDim.x) {
+           S_calcc[ii*num_q_raster2+jj] = (amp_cos[jj] * amp_cos[jj] + amp_sin[jj] * amp_sin[jj]) / float(num_q_raster);
+        }    
+        // Tree-like summation of S_calcc to get S_calc
+        for (int stride = num_q_raster2 / 2; stride > 0; stride >>= 1) {
+            __syncthreads();
+            for(int iAccum = threadIdx.x; iAccum < stride; iAccum += blockDim.x) {
+                S_calcc[ii * num_q_raster2 + iAccum] += S_calcc[ii * num_q_raster2 + stride + iAccum];
+            }
+        }
+        __syncthreads();
+        
+        S_calc[ii] = S_calcc[ii * num_atom2];
+        __syncthreads();
+
+
+    }
+}

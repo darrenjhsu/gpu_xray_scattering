@@ -23,15 +23,18 @@ void xray_scattering (
     float r_m,       // exclusion radius for C1 (1.62)
     float rho,       // water electron density (e-/A^3, 0.334 at 20 C)
     float c1,        // hyperparameter for C1 solvent exclusion term (1.0)
-    float c2         // hyperparameter for hydration shell (2.0)
+    float c2,        // hyperparameter for hydration shell (2.0)
+    int use_oa,      // do orientational averaging literally (calls scat_calc_oa)
+    int num_q_raster // number of q_raster points when using scat_calc_oa
 ) {
 // This function is called by tclforce script from NAMD. Note that it is only executed every delta_t steps.
     struct timeval tv1, tv2;
     gettimeofday(&tv1, NULL);
 
     // In this code pointers with d_ are device pointers. 
-    int   num_atom2 = (num_atom + 2047)/2048 * 2048;
+    int   num_atom2 = (num_atom + 2047) / 2048 * 2048;
     int   num_q2    = (num_q + 31) / 32 * 32;
+    int   num_q_raster2 = (num_q + 1023) / 1024 * 1024;
     //printf("num_atom2 = %d, num_q2 = %d\n", num_atom2, num_q2);
 
     // Declare cuda pointers //
@@ -164,7 +167,7 @@ void xray_scattering (
 
     // Calculate the non-varying part of the form factor.
     // In the future this can be done pre-simulation.
-    FF_calc<<<320, 32>>>(
+    FF_calc<<<num_q2, 32>>>(
         d_q, 
         d_WK, 
         d_vdW, 
@@ -176,7 +179,7 @@ void xray_scattering (
         rho);
 
     // Adding the surface area contribution. From this point every atom has a different form factor.
-    create_FF_full_FoXS<<<320, 1024>>>(
+    create_FF_full_FoXS<<<num_q2, 1024>>>(
         d_FF_table, 
         d_V,
         c2, 
@@ -197,18 +200,45 @@ void xray_scattering (
 
     // Actually calculating scattering pattern. This kernel is for single snapshot - 
     // the force is purely based on this one structure.
-    scat_calc<<<320, 1024>>>(
-        d_coord, 
-        d_Ele,
-        d_q, 
-        d_S_calc, 
-        num_atom,  
-        num_q,     
-        num_ele,  
-        d_S_calcc, 
-        num_atom2, 
-        d_FF_full);
-
+    if (use_oa == 0) {
+        scat_calc<<<num_q2, 1024>>>(
+            d_coord, 
+            d_Ele,
+            d_q, 
+            d_S_calc, 
+            num_atom,  
+            num_q,     
+            num_ele,  
+            d_S_calcc, 
+            num_atom2, 
+            d_FF_full);
+    } else if (use_oa == 1) {
+        scat_calc_oa<<<num_q2, num_q_raster2>>>(
+            d_coord, 
+            d_Ele,
+            d_q, 
+            d_S_calc, 
+            num_atom,  
+            num_q,     
+            num_ele,  
+            d_S_calcc, 
+            num_atom2, 
+            d_FF_full,
+            num_q_raster);
+    } else {
+        scat_calc_oa2<<<num_q2, num_q_raster2>>>(
+            d_coord, 
+            d_Ele,
+            d_q, 
+            d_S_calc, 
+            num_atom,  
+            num_q,     
+            num_ele,  
+            d_S_calcc, 
+            num_atom2, 
+            d_FF_full,
+            num_q_raster);
+    }
     cudaDeviceSynchronize();
     error = cudaGetLastError();
     if(error!=cudaSuccess)

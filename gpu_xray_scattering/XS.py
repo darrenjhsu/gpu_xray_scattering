@@ -5,7 +5,8 @@ from .xs_helper import xray_scatter
 from array import array
 
 class Scatter:
-    def __init__(self, q=np.linspace(0, 1, 200), c1=1.0, c2=2.0, r_m=1.62, sol_s=1.8, num_raster=512, rho=0.334):
+    def __init__(self, q=np.linspace(0, 1, 200), c1=1.0, c2=2.0, r_m=1.62, 
+                 sol_s=1.8, num_raster=512, rho=0.334, use_oa=False, num_q_raster=1024):
         self.q = q
         self.c1 = c1
         self.c2 = c2
@@ -13,6 +14,8 @@ class Scatter:
         self.sol_s = sol_s
         self.num_raster = num_raster
         self.rho = rho
+        self.use_oa = use_oa
+        self.num_q_raster = num_q_raster
 
     def scatter(self, protein=None, ligand=None, timing=False):
         if protein is None and ligand is None:
@@ -38,7 +41,8 @@ class Scatter:
         t0 = time.time()
         S_calc = xray_scatter(coords_a, ele_a, q_a, 
                               num_raster=self.num_raster, sol_s=self.sol_s, 
-                              r_m=self.r_m, rho=self.rho, c1=self.c1, c2=self.c2)
+                              r_m=self.r_m, rho=self.rho, c1=self.c1, c2=self.c2, 
+                              use_oa=self.use_oa, num_q_raster=self.num_q_raster)
         t1 = time.time()
         
         if timing:
