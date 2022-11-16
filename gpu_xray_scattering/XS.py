@@ -6,7 +6,7 @@ from array import array
 
 class Scatter:
     def __init__(self, q=np.linspace(0, 1, 200), c1=1.0, c2=2.0, r_m=1.62, 
-                 sol_s=1.8, num_raster=512, rho=0.334, use_oa=False, num_q_raster=1024):
+                 sol_s=1.8, num_raster=512, rho=0.334, use_oa=0, num_q_raster=1024):
         self.q = q
         self.c1 = c1
         self.c2 = c2

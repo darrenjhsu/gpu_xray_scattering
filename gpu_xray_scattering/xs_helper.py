@@ -15,8 +15,9 @@ except Exception as e:
 xs_calc = xs.xray_scattering
 xs_calc.restype = None
 
-def xray_scatter(coord, ele, q, use_oa=False, num_q_raster=1024, 
-                 num_raster=512, sol_s=1.8, r_m=1.62, rho=0.334, c1=1.00, c2=2.00):
+def xray_scatter(coord, ele, q, 
+                 num_raster=512, sol_s=1.8, r_m=1.62, rho=0.334, c1=1.00, c2=2.00,
+                 use_oa=0, num_q_raster=1024):
     
     assert len(coord) == 3 * len(ele)
     num_atom = len(ele)
