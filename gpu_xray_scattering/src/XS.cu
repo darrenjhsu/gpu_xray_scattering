@@ -70,6 +70,7 @@ void xray_scattering (
     int size_atom2       = num_atom2 * sizeof(int);
     int size_atom2f      = num_atom2 * sizeof(float);
     int size_atom2xatom2 = 1024 * num_atom2 * sizeof(int); // For d_close_flag
+    int size_nearxatom   = 128 * num_atom * sizeof(int); // For d_close_idx
     int size_q           = num_q * sizeof(float); 
     int size_qxatom2     = num_q2 * 1024 * sizeof(float);
     int size_qxqraster2  = num_q2 * num_q_raster2 * sizeof(float);
@@ -93,7 +94,7 @@ void xray_scattering (
     cudaMalloc((void **)&d_V_s,        size_atom2f);
     cudaMalloc((void **)&d_close_flag, size_atom2xatom2);
     cudaMalloc((void **)&d_close_num,  size_atom2);
-    cudaMalloc((void **)&d_close_idx,  size_atom2xatom2);
+    cudaMalloc((void **)&d_close_idx,  size_nearxatom);
     cudaMalloc((void **)&d_vdW,        size_vdW);
     cudaMalloc((void **)&d_FF_table,   size_FF_table);
     cudaMalloc((void **)&d_FF_full,    size_FF_full);
@@ -109,7 +110,7 @@ void xray_scattering (
         cudaMemset(d_S_calcc,    0.0, size_qxqraster2);
     }
     cudaMemset(d_close_num,  0,   size_atom2);
-    cudaMemset(d_close_idx,  0,   size_atom2xatom2);
+    cudaMemset(d_close_idx,  0,   size_nearxatom);
     cudaMemset(d_FF_full,    0.0, size_FF_full);
 
     // Copy necessary data

@@ -15,7 +15,7 @@ __global__ void dist_calc (
     int num_atom2) {
 
     // close_flag is a 1024 x num_atom2 int matrix initialized to 0.
-    // close_idx: A num_atom x 200 int matrix, row i of which only the first close_num[i] elements are defined. (Otherwise it's -1). 
+    // close_idx: A 96 x num_atom2 int matrix, row i of which only the first close_num[i] elements are defined. (Otherwise it's -1). 
     __shared__ float x_ref, y_ref, z_ref;
     __shared__ int idz;
     __shared__ int temp[2048];
@@ -41,7 +41,7 @@ __global__ void dist_calc (
             if (ii == jj) close_flag[idy*num_atom2+jj] = 0;
         }
         __syncthreads();
-        // Do pre scan
+        // Prefix sum: Do pre scan
         idz = 0;
         int temp_sum = 0;
         for (int jj = threadIdx.x; jj < num_atom2; jj += 2 * blockDim.x) {
@@ -82,10 +82,10 @@ __global__ void dist_calc (
         
             // Finally assign the indices
             if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx] == 1) {
-                close_idx[ii * 1024 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz;
+                close_idx[ii * 128 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz;
             }
             if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx + 1] == 1) {
-                close_idx[ii * 1024 + temp[2*idx+1] + temp_sum] = 2*idx+1 + 2 * blockDim.x * idz;
+                close_idx[ii * 128 + temp[2*idx+1] + temp_sum] = 2 * idx + 1 + 2 * blockDim.x * idz;
             }
             idz++;
             __syncthreads();
@@ -136,7 +136,7 @@ __global__ void __launch_bounds__(512,4) surf_calc (
             float y2 = r * yu + coord[3*ii+1];
             float z2 = r * zu + coord[3*ii+2];
             for (int kk = 0; kk < close_num[ii]; kk++) {
-                int atom2i = close_idx[ii * 1024 + kk];
+                int atom2i = close_idx[ii * 128 + kk];
                 int atom2t = Ele[atom2i];
                 float dx = (x - coord[3*atom2i]);
                 float dy = (y - coord[3*atom2i+1]);
