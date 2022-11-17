@@ -32,10 +32,14 @@ void xray_scattering (
     gettimeofday(&tv1, NULL);
 
     // In this code pointers with d_ are device pointers. 
-    int   num_atom2 = (num_atom + 2047) / 2048 * 2048;
+    unsigned int   v = num_atom;
+    v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++;
+    int num_atom2 = (int) v > 2048 ? (int) v : 2048;
+    
+
     int   num_q2    = (num_q + 31) / 32 * 32;
     int   num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
-    //printf("num_atom2 = %d, num_q2 = %d, num_q_raster2 = %d\n", num_atom2, num_q2, num_q_raster2);
+    printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_q_raster, num_q_raster2);
 
     // Declare cuda pointers //
     float *d_coord;          // Coordinates 3 x num_atom
@@ -130,7 +134,7 @@ void xray_scattering (
     cudaError_t error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: dist_calc %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
@@ -151,7 +155,7 @@ void xray_scattering (
     error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: surf_calc %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
@@ -169,7 +173,7 @@ void xray_scattering (
     error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: sum_V %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
@@ -202,7 +206,7 @@ void xray_scattering (
     error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: FF %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
@@ -255,16 +259,16 @@ void xray_scattering (
     error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: scat_calc %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
     cudaMemcpy(S_calc, d_S_calc, size_q,     cudaMemcpyDeviceToHost);
 
-    /*printf("S_calc: ");
-    for (int ii = 0; ii < num_q; ii++) {
-        printf("%.3f, ", S_calc[ii]);
-    }*/
+    //printf("S_calc: ");
+    //for (int ii = 0; ii < num_q; ii++) {
+    //    printf("%.3f, ", S_calc[ii]);
+    //}
    
 
     cudaDeviceSynchronize();

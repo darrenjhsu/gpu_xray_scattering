@@ -26,4 +26,12 @@ scatter = XS.Scatter()
 S_calc = scatter.scatter(pro, timing=True)
 S_calc = scatter.scatter(pro, timing=True) # Second time is much faster
 
+scatter_oa = XS.Scatter(use_oa=1)
+S_calc_oa = scatter_oa.scatter(pro, timing=True)
+
+scatter_oa2 = XS.Scatter(use_oa=2)
+S_calc_oa2 = scatter_oa.scatter(pro, timing=True)
+
 print(S_calc[:5])
+print(S_calc_oa[:5])
+print(S_calc_oa2[:5])

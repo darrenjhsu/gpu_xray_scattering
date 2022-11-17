@@ -21,16 +21,44 @@ pro_coord, pro_ele = readPDB('1L2Y.pdb') # Or generate numpy arrays yourself
 # Molecule class takes numpy array for coordinates
 # and any kind of lists as elements
 pro = Molecule(coordinates=pro_coord, elements=pro_ele)
+pro2 = Molecule(coordinates=np.concatenate([pro_coord, pro_coord+10]), elements=np.concatenate([pro_ele, pro_ele]))
 
-scatter = XS.Scatter()
+scatter = XS.Scatter(c1=1, c2=2)
+scatter_oa = XS.Scatter(c1=1, c2=2, use_oa=1)
 S_calc = scatter.scatter(pro, timing=True)
+#print(S_calc[:10])
+S_calc = scatter.scatter(pro2, timing=True)
+#print(S_calc[:10])
 
-for i in np.unique(np.logspace(0, 2.7, 50, dtype=int)):
+for i in np.unique(np.logspace(0, 2.9, 50, dtype=int)):
     pro_coord_stack = np.empty((0, 3))
     for j in range(i):
-        pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + np.array([100, 0, 0]) * i])
+        pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + j*1])
     pro_ele_stack = np.repeat(pro_ele, i)
     pro = Molecule(coordinates=pro_coord_stack, elements=pro_ele_stack)
-    print(f'Num of atoms: {len(pro_ele_stack)}')
-    S_calc = scatter.scatter(pro, timing=True) # Second time is much faster
+    print(f'Num of atoms: {len(pro_ele_stack)}, electrons: {(pro.electrons).sum()}')
+    print('Orientational average 1')
+    S_calc_oa = np.array(scatter_oa.scatter(pro, timing=True))
+    print(S_calc_oa[:10])
+    #print(S_calc[:5], S_calc_oa[:5])
+
+for i in np.unique(np.logspace(0, 2.5, 50, dtype=int)):
+    pro_coord_stack = np.empty((0, 3))
+    for j in range(i):
+        pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + j*1])
+    pro_ele_stack = np.repeat(pro_ele, i)
+    pro = Molecule(coordinates=pro_coord_stack, elements=pro_ele_stack)
+    print(f'Num of atoms: {len(pro_ele_stack)}, electrons: {(pro.electrons).sum()}')
+    print('Vanilla')
+    S_calc = np.array(scatter.scatter(pro, timing=True))
+    print('Orientational average 1')
+    S_calc_oa = np.array(scatter_oa.scatter(pro, timing=True))
+    print(S_calc[:10])
+    print(S_calc_oa[:10])
+    #print(S_calc[:5], S_calc_oa[:5])
+    rel_diff = np.max(np.abs((S_calc_oa - S_calc) / S_calc))
+    ref_diff_max_idx = np.argmax(np.abs((S_calc_oa - S_calc) / S_calc))
+    print(f'Relative difference: {rel_diff} at idx {ref_diff_max_idx}: vanilla is {S_calc[ref_diff_max_idx]} and oa is {S_calc_oa[ref_diff_max_idx]}')
+    print()
+
 
