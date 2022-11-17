@@ -19,8 +19,10 @@ __global__ void scat_calc (float *coord,  float *Force,   int *Ele,      float *
                            float *f_ptzc, float *S_calcc, int num_atom2, int num_q2,    float *vdW, 
                            float c1,      float c2,       float *V,      float r_m);
 
+__global__ void scat_calc_oa (float *coord,  float *Force,   int *Ele,      float *WK,     float *q_S_ref_dS, 
+                           float *S_calc, int num_atom,   int num_q,     int num_ele,   float *Aq, 
+                           float alpha,   float k_chi,    float sigma2,  float *f_ptxc, float *f_ptyc, 
+                           float *f_ptzc, float *S_calcc, int num_atom2, int num_q2,    float *vdW, 
+                           float c1,      float c2,       float *V,      float r_m,     int num_q_raster);
+
 __global__ void force_calc (float *Force, int num_atom, int num_q, float *f_ptxc, float *f_ptyc, float *f_ptzc, int num_atom2, int num_q2); 
-/*__global__ void force_proj (float *coord, float *Force, float *rot, float *rot_pt, int *bond_pp, int num_pp, int num_atom, int num_atom2);
-__global__ void pp_assign (float *coord, float *Force, float *rot, int *bond_pp, int num_pp, int num_atom);
-__device__ float dot (float a1, float a2, float a3, float b1, float b2, float b3);
-__device__ float cross2 (float a2, float a3, float b2, float b3);*/
