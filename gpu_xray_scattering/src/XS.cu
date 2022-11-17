@@ -32,13 +32,13 @@ void xray_scattering (
     gettimeofday(&tv1, NULL);
 
     // In this code pointers with d_ are device pointers. 
-    unsigned int   v = num_atom;
-    v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++;
-    int num_atom2 = (int) v > 2048 ? (int) v : 2048;
-    
+    unsigned int   v  = num_atom;
+    v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; // find next power of 2 of v
+    int num_atom2     = (int) v > 2048 ? (int) v : 2048;
+    int num_atom1024  = (num_atom + 1023) / 1024 * 1024;
+    int num_q2        = (num_q + 31) / 32 * 32;
+    int num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
 
-    int   num_q2    = (num_q + 31) / 32 * 32;
-    int   num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
     printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_q_raster, num_q_raster2);
 
     // Declare cuda pointers //
@@ -71,14 +71,13 @@ void xray_scattering (
     int size_atom2f      = num_atom2 * sizeof(float);
     int size_atom2xatom2 = 1024 * num_atom2 * sizeof(int); // For d_close_flag
     int size_q           = num_q * sizeof(float); 
-    int size_qxatom2     = num_q2 * num_atom2 * sizeof(float);
+    int size_qxatom2     = num_q2 * 1024 * sizeof(float);
     int size_qxqraster2  = num_q2 * num_q_raster2 * sizeof(float);
     int size_FF_table    = (num_ele + 1) * num_q * sizeof(float); // +1 for solvent
+    int size_FF_full     = num_q * num_atom1024 * sizeof(float);
     int size_WK          = 11 * num_ele * sizeof(float);
     int size_vdW         = (num_ele + 1) * sizeof(float); // +1 for solvent
 
-    // Allocate local memories
-    // S_calc = (float *)malloc(size_q);
 
     // Allocate cuda memories
     cudaMalloc((void **)&d_coord,      size_coord); // 40 KB
@@ -97,11 +96,11 @@ void xray_scattering (
     cudaMalloc((void **)&d_close_idx,  size_atom2xatom2);
     cudaMalloc((void **)&d_vdW,        size_vdW);
     cudaMalloc((void **)&d_FF_table,   size_FF_table);
-    cudaMalloc((void **)&d_FF_full,    size_qxatom2);
+    cudaMalloc((void **)&d_FF_full,    size_FF_full);
     cudaMalloc((void **)&d_WK,         size_WK);
 
     // Initialize some matrices
-    cudaMemset(d_close_flag, 0,   size_qxatom2);
+    cudaMemset(d_close_flag, 0,   size_atom2xatom2);
 
     cudaMemset(d_S_calc,     0.0, size_q);
     if (use_oa == 0) {
@@ -111,7 +110,7 @@ void xray_scattering (
     }
     cudaMemset(d_close_num,  0,   size_atom2);
     cudaMemset(d_close_idx,  0,   size_atom2xatom2);
-    cudaMemset(d_FF_full,    0.0, size_qxatom2);
+    cudaMemset(d_FF_full,    0.0, size_FF_full);
 
     // Copy necessary data
     cudaMemcpy(d_coord,      coord,      size_coord, cudaMemcpyHostToDevice);
@@ -120,6 +119,13 @@ void xray_scattering (
     cudaMemcpy(d_q,          q,          size_q,     cudaMemcpyHostToDevice);
     cudaMemcpy(d_WK,         WK,         size_WK,    cudaMemcpyHostToDevice);
 
+    cudaDeviceSynchronize();
+    cudaError_t error = cudaGetLastError();
+    if(error!=cudaSuccess)
+    {
+       fprintf(stderr,"ERROR: setting memory %s\n", cudaGetErrorString(error) );
+       exit(-1);
+    }
 
     // Register what atoms are close to what atoms. 
     dist_calc<<<1024, 1024>>>(
@@ -131,7 +137,7 @@ void xray_scattering (
         num_atom2); 
 
     cudaDeviceSynchronize();
-    cudaError_t error = cudaGetLastError();
+    error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
        fprintf(stderr,"ERROR: dist_calc %s\n", cudaGetErrorString(error) );
@@ -179,7 +185,7 @@ void xray_scattering (
 
     // Calculate the non-varying part of the form factor.
     // In the future this can be done pre-simulation.
-    FF_calc<<<num_q2, 32>>>(
+    FF_calc<<<num_q, 32>>>(
         d_q, 
         d_WK, 
         d_vdW, 
@@ -191,7 +197,7 @@ void xray_scattering (
         rho);
 
     // Adding the surface area contribution. From this point every atom has a different form factor.
-    create_FF_full_FoXS<<<num_q2, 1024>>>(
+    create_FF_full_FoXS<<<num_q, 1024>>>(
         d_FF_table, 
         d_V,
         c2, 
@@ -200,7 +206,7 @@ void xray_scattering (
         num_q, 
         num_ele, 
         num_atom, 
-        num_atom2);
+        num_atom1024);
 
     cudaDeviceSynchronize();
     error = cudaGetLastError();
@@ -213,7 +219,7 @@ void xray_scattering (
     // Actually calculating scattering pattern. This kernel is for single snapshot  
     if (use_oa == 0) {
         printf("Using vanilla method\n");
-        scat_calc<<<num_q2, 1024>>>(
+        scat_calc<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,
             d_q, 
@@ -222,11 +228,11 @@ void xray_scattering (
             num_q,     
             num_ele,  
             d_S_calcc, 
-            num_atom2, 
+            num_atom1024, 
             d_FF_full);
     } else if (use_oa == 1) {
         printf("Using orientational averaging method 1\n");
-        scat_calc_oa<<<num_q2, 1024>>>(
+        scat_calc_oa<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,
             d_q, 
@@ -235,13 +241,13 @@ void xray_scattering (
             num_q,     
             num_ele,  
             d_S_calcc, 
-            num_atom2, 
+            num_atom1024, 
             d_FF_full,
             num_q_raster,
             num_q_raster2);
     } else {
         printf("Using orientational averaging method 2\n");
-        scat_calc_oa2<<<num_q2, 1024>>>(
+        scat_calc_oa2<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,
             d_q, 
@@ -250,7 +256,7 @@ void xray_scattering (
             num_q,     
             num_ele,  
             d_S_calcc, 
-            num_atom2, 
+            num_atom1024, 
             d_FF_full,
             num_q_raster,
             num_q_raster2);

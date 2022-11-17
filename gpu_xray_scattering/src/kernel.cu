@@ -263,7 +263,7 @@ __global__ void create_FF_full_FoXS (
     int num_q, 
     int num_ele, 
     int num_atom, 
-    int num_atom2) {
+    int num_atom1024) {
 
     // Add on SASA for each atom
 
@@ -285,8 +285,7 @@ __global__ void create_FF_full_FoXS (
         // Calculate atomic form factor for this q
         for (int jj = threadIdx.x; jj < num_atom; jj += blockDim.x) {
             int atomt = Ele[jj];
-            FF_full[ii*num_atom2 + jj] = FF_pt[atomt];
-            FF_full[ii*num_atom2 + jj] += hydration * V[jj];
+            FF_full[ii*num_atom1024 + jj] = FF_pt[atomt] + hydration * V[jj];
         }
     }
 }
@@ -300,7 +299,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc (
     int num_q,     
     int num_ele,   
     float *S_calcc, 
-    int num_atom2,
+    int num_atom1024,
     float *FF_full) {
 
     float q_pt;
@@ -317,7 +316,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc (
             float S_calccs = 0.0;
             for (int kk = 0; kk < num_atom; kk++) {
                 // for every atom kk
-                float FF_kj = FF_full[ii * num_atom2 + jj] * FF_full[ii * num_atom2 + kk];
+                float FF_kj = FF_full[ii * num_atom1024 + jj] * FF_full[ii * num_atom1024 + kk];
                 if (q_pt == 0.0 || kk == jj) {
                     S_calccs += FF_kj;
                 } else {
@@ -330,19 +329,19 @@ __global__ void __launch_bounds__(1024,2) scat_calc (
                     S_calccs += FF_kj * sqr;
                 }
             }
-            S_calcc[ii*num_atom2+jj] = S_calccs;
+            S_calcc[ii*blockDim.x+threadIdx.x] += S_calccs;
         }
         
         // Tree-like summation of S_calcc to get S_calc
-        for (int stride = num_atom2 / 2; stride > 0; stride >>= 1) {
+        for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
             __syncthreads();
             for(int iAccum = threadIdx.x; iAccum < stride; iAccum += blockDim.x) {
-                S_calcc[ii * num_atom2 + iAccum] += S_calcc[ii * num_atom2 + stride + iAccum];
+                S_calcc[ii * blockDim.x + iAccum] += S_calcc[ii * blockDim.x + stride + iAccum];
             }
         }
         __syncthreads();
         
-        S_calc[ii] = S_calcc[ii * num_atom2];
+        S_calc[ii] = S_calcc[ii * blockDim.x];
         __syncthreads();
 
 
@@ -359,7 +358,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa (
     int num_q,
     int num_ele,   
     float *S_calcc, 
-    int num_atom2,
+    int num_atom1024,
     float *FF_full,
     int num_q_raster,
     int num_q_raster2) {
@@ -399,7 +398,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa (
             float amp_cos = 0.0; // this q and this q raster point, summed over all atoms
             float amp_sin = 0.0; // this q and this q raster point, summed over all atoms
             for (int kk = 0; kk < num_atom; kk++) {
-                float FF = FF_full[ii * num_atom2 + kk];
+                float FF = FF_full[ii * num_atom1024 + kk];
                 float qrx = -coord[3*kk] * qx;
                 float qry = -coord[3*kk+1] * qy;
                 float qrz = -coord[3*kk+2] * qz;
@@ -435,7 +434,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa2 (
     int num_q,
     int num_ele,   
     float *S_calcc, 
-    int num_atom2,
+    int num_atom1024,
     float *FF_full,
     int num_q_raster,
     int num_q_raster2) {
@@ -480,7 +479,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa2 (
             float atomx = coord[3*jj];
             float atomy = coord[3*jj+1];
             float atomz = coord[3*jj+2];
-            float FF = FF_full[ii * num_atom2 + jj];
+            float FF = FF_full[ii * num_atom1024 + jj];
             for (int kk = 0; kk < num_q_raster; kk++) {
                 float qrx = -atomx * q_raster[3*kk];
                 float qry = -atomy * q_raster[3*kk+1];

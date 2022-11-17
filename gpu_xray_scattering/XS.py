@@ -6,7 +6,8 @@ from array import array
 
 class Scatter:
     def __init__(self, q=np.linspace(0, 1, 200), c1=1.0, c2=2.0, r_m=1.62, 
-                 sol_s=1.8, num_raster=512, rho=0.334, use_oa=0, num_q_raster=1024):
+                 sol_s=1.8, num_raster=512, rho=0.334, use_oa=0, num_q_raster=1024,
+                 centering=True):
         self.q = q
         self.c1 = c1
         self.c2 = c2
@@ -16,6 +17,7 @@ class Scatter:
         self.rho = rho
         self.use_oa = use_oa
         self.num_q_raster = num_q_raster
+        self.centering = centering
 
     def scatter(self, protein=None, ligand=None, timing=False):
         if protein is None and ligand is None:
@@ -31,7 +33,8 @@ class Scatter:
             # do things with ligand
             coords = np.vstack([coords, ligand.coordinatess])
             ele = np.concatenate([ele, ligand.electrons - 1])
-                    
+        if self.centering:
+            coords = coords - coords.mean(0)            
         
         # array-ize np arrays
         coords_a = array('f', coords.flatten())
