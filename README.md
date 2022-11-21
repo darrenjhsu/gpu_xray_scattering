@@ -21,6 +21,11 @@ You need a working nvcc compiler.
 
 Please consult `python examples/1L2Y_example.py`
 
+## Limitation
+
+Currently the code could go out of memory when `num_atom > 262144 (or 2^18)` (tested on NVIDIA V100 GPU cards).
+Work is being done to limit matrix sizes.
+
 ## Parameters in scattering
 
 The scattering calculator object
