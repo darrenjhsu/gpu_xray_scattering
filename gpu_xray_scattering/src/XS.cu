@@ -34,7 +34,7 @@ void xray_scattering (
     // In this code pointers with d_ are device pointers. 
     unsigned int   v  = num_atom;
     v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; // find next power of 2 of v
-    int num_atom2     = (int) v > 2048 ? (int) v : 2048;
+    int num_atom2     = (int) v > 65536 ? 65536 : ((int) v < 2048 ? 2048 : (int) v);
     int num_atom1024  = (num_atom + 1023) / 1024 * 1024;
     int num_q2        = (num_q + 31) / 32 * 32;
     int num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
@@ -67,8 +67,7 @@ void xray_scattering (
     // set various memory chunk sizes
     int size_coord       = 3 * num_atom * sizeof(float);
     int size_atom        = num_atom * sizeof(int);
-    int size_atom2       = num_atom2 * sizeof(int);
-    int size_atom2f      = num_atom2 * sizeof(float);
+    int size_atomf       = num_atom * sizeof(float);
     int size_atom2xatom2 = 1024 * num_atom2 * sizeof(int); // For d_close_flag
     int size_nearxatom   = 128 * num_atom * sizeof(int); // For d_close_idx
     int size_q           = num_q * sizeof(float); 
@@ -90,10 +89,10 @@ void xray_scattering (
     } else {
         cudaMalloc((void **)&d_S_calcc,    size_qxqraster2);
     }
-    cudaMalloc((void **)&d_V,          size_atom2f);
-    cudaMalloc((void **)&d_V_s,        size_atom2f);
+    cudaMalloc((void **)&d_V,          size_atomf);
+    cudaMalloc((void **)&d_V_s,        size_atomf);
     cudaMalloc((void **)&d_close_flag, size_atom2xatom2);
-    cudaMalloc((void **)&d_close_num,  size_atom2);
+    cudaMalloc((void **)&d_close_num,  size_atom);
     cudaMalloc((void **)&d_close_idx,  size_nearxatom);
     cudaMalloc((void **)&d_vdW,        size_vdW);
     cudaMalloc((void **)&d_FF_table,   size_FF_table);
@@ -102,6 +101,10 @@ void xray_scattering (
 
     // Initialize some matrices
     cudaMemset(d_close_flag, 0,   size_atom2xatom2);
+    cudaMemset(d_close_num,  0,   size_atom);
+    cudaMemset(d_close_idx,  0,   size_nearxatom);
+    
+    cudaMemset(d_FF_full,    0.0, size_FF_full);
 
     cudaMemset(d_S_calc,     0.0, size_q);
     if (use_oa == 0) {
@@ -109,9 +112,6 @@ void xray_scattering (
     } else {
         cudaMemset(d_S_calcc,    0.0, size_qxqraster2);
     }
-    cudaMemset(d_close_num,  0,   size_atom2);
-    cudaMemset(d_close_idx,  0,   size_nearxatom);
-    cudaMemset(d_FF_full,    0.0, size_FF_full);
 
     // Copy necessary data
     cudaMemcpy(d_coord,      coord,      size_coord, cudaMemcpyHostToDevice);
@@ -124,7 +124,7 @@ void xray_scattering (
     cudaError_t error = cudaGetLastError();
     if(error!=cudaSuccess)
     {
-       fprintf(stderr,"ERROR: setting memory %s\n", cudaGetErrorString(error) );
+       fprintf(stderr,"ERROR: setting memory, %s\n", cudaGetErrorString(error) );
        exit(-1);
     }
 
