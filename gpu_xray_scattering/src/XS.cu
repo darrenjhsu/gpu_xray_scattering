@@ -39,7 +39,7 @@ void xray_scattering (
     int num_q2        = (num_q + 31) / 32 * 32;
     int num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
 
-    printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_q_raster, num_q_raster2);
+    printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_raster = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_raster, num_q_raster, num_q_raster2);
 
     // Declare cuda pointers //
     float *d_coord;          // Coordinates 3 x num_atom

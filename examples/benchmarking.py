@@ -42,13 +42,13 @@ S_calc = scatter.scatter(pro2, timing=True)
 #    print(S_calc_oa[:10])
 #    #print(S_calc[:5], S_calc_oa[:5])
 
-for i in np.unique(np.logspace(0, 2.5, 4, dtype=int)):
+for i in np.unique(np.logspace(0, 2.7, 40, dtype=int)):
     pro_coord_stack = np.empty((0, 3))
     for j in range(i):
         pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + j*50])
     pro_ele_stack = np.repeat(pro_ele, i)
     pro = Molecule(coordinates=pro_coord_stack, elements=pro_ele_stack)
-    print(f'Num of atoms: {len(pro_ele_stack)}, electrons: {(pro.electrons).sum()}')
+    print(f'Num of atoms: {len(pro_ele_stack)} ({i} copies), electrons: {(pro.electrons).sum()}')
     print('Vanilla')
     S_calc = np.array(scatter.scatter(pro, timing=True))
     print('Orientational average 1')
