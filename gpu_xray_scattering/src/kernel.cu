@@ -22,9 +22,11 @@ __global__ void dist_calc (
 
     __shared__ int round;
     round = (num_atom2 > num_atom) ? 1 : (num_atom + num_atom2 - 1) / num_atom2;
+    /*
     if (blockIdx.x == 0) {
         if (threadIdx.x == 0) printf("Number of rounds: %d\n", round);
     }
+    */
     // Calc distance
     for (int ii = blockIdx.x; ii < num_atom; ii += gridDim.x) {
         if (threadIdx.x == 0) {
@@ -60,6 +62,8 @@ __global__ void dist_calc (
             for (int jj = threadIdx.x; jj < num_atom2; jj += 2 * blockDim.x) {
                 int idx = jj % blockDim.x; 
                 int offset = 1;
+                temp[2 * idx]     = 0; // flush temp
+                temp[2 * idx + 1] = 0; // flush temp
                 temp[2 * idx]     = close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx];
                 temp[2 * idx + 1] = close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx + 1];
                 for (int d = 2 * blockDim.x>>1; d > 0; d >>= 1) { // up-sweep
@@ -95,16 +99,29 @@ __global__ void dist_calc (
             
                 // Finally assign the indices
                 if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx] == 1) {
-                    close_idx[ii * 128 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz + temp_sum;
+                    close_idx[ii * 128 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz;
                 }
                 if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx + 1] == 1) {
-                    close_idx[ii * 128 + temp[2*idx+1] + temp_sum] = 2 * idx + 1 + 2 * blockDim.x * idz + temp_sum;
+                    close_idx[ii * 128 + temp[2*idx+1] + temp_sum] = 2 * idx + 1 + 2 * blockDim.x * idz;
                 }
                 idz++;
                 __syncthreads();
             } // prefix sum loop
         } // round loop
     } // block loop
+
+    /* 
+    if (blockIdx.x == 0) {
+        if (threadIdx.x == 0) {
+            for (int ii = 0; ii < num_atom; ii++) {
+                printf("Atom %d: close num %d (last is ", ii, close_num[ii]);
+                    printf("%d", close_idx[ii*128+close_num[ii]-1]);
+                printf(")\n");
+            }
+        }
+    }
+    */
+
 } // function
 
 

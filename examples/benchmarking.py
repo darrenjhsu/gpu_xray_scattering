@@ -2,6 +2,8 @@
 import numpy as np
 from gpu_xray_scattering import XS
 from gpu_xray_scattering.Molecule import Molecule
+from itertools import product
+
 
 def readPDB(fname): 
     # Just a temporary reader 
@@ -18,6 +20,8 @@ def readPDB(fname):
 
 pro_coord, pro_ele = readPDB('1L2Y.pdb') # Or generate numpy arrays yourself
 
+max_side = np.max(np.max(pro_coord, axis=0) - np.min(pro_coord, axis=0))
+print(max_side)
 # Molecule class takes numpy array for coordinates
 # and any kind of lists as elements
 pro = Molecule(coordinates=pro_coord, elements=pro_ele)
@@ -44,8 +48,12 @@ S_calc = scatter.scatter(pro2, timing=True)
 
 for i in np.unique(np.logspace(0, 2.7, 40, dtype=int)):
     pro_coord_stack = np.empty((0, 3))
-    for j in range(i):
-        pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + j*50])
+    side_length = np.ceil(i**(1/3)).astype(int)
+    print(side_length)
+    box = list(product(np.arange(side_length), repeat=3))
+    for j in box[:i]:
+        #print(j)
+        pro_coord_stack = np.concatenate([pro_coord_stack, pro_coord + np.array(j)*max_side])
     pro_ele_stack = np.repeat(pro_ele, i)
     pro = Molecule(coordinates=pro_coord_stack, elements=pro_ele_stack)
     print(f'Num of atoms: {len(pro_ele_stack)} ({i} copies), electrons: {(pro.electrons).sum()}')
