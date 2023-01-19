@@ -15,7 +15,7 @@ __global__ void dist_calc (
     int num_atom2) {
 
     // close_flag is a 1024 x num_atom2 int matrix initialized to 0.
-    // close_idx: A 96 x num_atom2 int matrix, row i of which only the first close_num[i] elements are defined. (Otherwise it's -1). 
+    // close_idx: A 128 x num_atom2 int matrix, row i of which only the first close_num[i] elements are defined. (Otherwise it's -1). 
     __shared__ float x_ref, y_ref, z_ref;
     __shared__ int idz;
     __shared__ int temp[2048];
@@ -95,10 +95,10 @@ __global__ void dist_calc (
             
                 // Finally assign the indices
                 if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx] == 1) {
-                    close_idx[ii * 128 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz + temp_sum;
+                    close_idx[ii * 128 + temp[2*idx] + temp_sum] = 2 * idx + 2 * blockDim.x * idz;
                 }
                 if (close_flag[idy * num_atom2 + 2 * blockDim.x * idz + 2 * idx + 1] == 1) {
-                    close_idx[ii * 128 + temp[2*idx+1] + temp_sum] = 2 * idx + 1 + 2 * blockDim.x * idz + temp_sum;
+                    close_idx[ii * 128 + temp[2*idx+1] + temp_sum] = 2 * idx + 1 + 2 * blockDim.x * idz;
                 }
                 idz++;
                 __syncthreads();
