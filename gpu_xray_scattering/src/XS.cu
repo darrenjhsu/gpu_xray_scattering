@@ -39,7 +39,7 @@ void xray_scattering (
     int num_q2        = (num_q + 31) / 32 * 32;
     int num_q_raster2 = (num_q_raster + 2047) / 2048 * 2048;
 
-    printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_raster = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_raster, num_q_raster, num_q_raster2);
+    // printf("num_atom = %d, num_atom2 = %d, num_q2 = %d, num_raster = %d, num_q_raster = %d, num_q_raster2 = %d\n", num_atom, num_atom2, num_q2, num_raster, num_q_raster, num_q_raster2);
 
     // Declare cuda pointers //
     float *d_coord;          // Coordinates 3 x num_atom
@@ -219,7 +219,7 @@ void xray_scattering (
 
     // Actually calculating scattering pattern. This kernel is for single snapshot  
     if (use_oa == 0) {
-        printf("Using vanilla method\n");
+        // printf("Using vanilla method\n");
         scat_calc<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,
@@ -232,7 +232,7 @@ void xray_scattering (
             num_atom1024, 
             d_FF_full);
     } else if (use_oa == 1) {
-        printf("Using orientational averaging method 1\n");
+        // printf("Using orientational averaging method 1\n");
         scat_calc_oa<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,
@@ -247,7 +247,7 @@ void xray_scattering (
             num_q_raster,
             num_q_raster2);
     } else {
-        printf("Using orientational averaging method 2\n");
+        // printf("Using orientational averaging method 2\n");
         scat_calc_oa2<<<num_q, 1024>>>(
             d_coord, 
             d_Ele,

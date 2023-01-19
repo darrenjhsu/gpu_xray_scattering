@@ -22,9 +22,9 @@ __global__ void dist_calc (
 
     __shared__ int round;
     round = (num_atom2 > num_atom) ? 1 : (num_atom + num_atom2 - 1) / num_atom2;
-    if (blockIdx.x == 0) {
+    /*if (blockIdx.x == 0) {
         if (threadIdx.x == 0) printf("Number of rounds: %d\n", round);
-    }
+    }*/
     // Calc distance
     for (int ii = blockIdx.x; ii < num_atom; ii += gridDim.x) {
         if (threadIdx.x == 0) {
