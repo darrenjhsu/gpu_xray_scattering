@@ -21,14 +21,14 @@ def readPDB(fname):
 pro_coord, pro_ele = readPDB('1L2Y.pdb') # Or generate numpy arrays yourself
 
 max_side = np.max(np.max(pro_coord, axis=0) - np.min(pro_coord, axis=0))
-print(max_side)
+#print(max_side)
 # Molecule class takes numpy array for coordinates
 # and any kind of lists as elements
 pro = Molecule(coordinates=pro_coord, elements=pro_ele)
 pro2 = Molecule(coordinates=np.concatenate([pro_coord, pro_coord+10]), elements=np.concatenate([pro_ele, pro_ele]))
 
-scatter = XS.Scatter(c1=1, c2=2)
-scatter_oa = XS.Scatter(c1=1, c2=2, use_oa=1)
+scatter = XS.Scatter(use_oa=0)
+scatter_oa = XS.Scatter(use_oa=1)
 S_calc = scatter.scatter(pro, timing=True)
 #print(S_calc[:10])
 S_calc = scatter.scatter(pro2, timing=True)
@@ -57,11 +57,12 @@ for i in np.unique(np.logspace(0, 2.7, 40, dtype=int)):
     pro_ele_stack = np.repeat(pro_ele, i)
     pro = Molecule(coordinates=pro_coord_stack, elements=pro_ele_stack)
     print(f'Num of atoms: {len(pro_ele_stack)} ({i} copies), electrons: {(pro.electrons).sum()}')
-    print('Vanilla')
-    S_calc = np.array(scatter.scatter(pro, timing=True))
+    if i < 50: 
+        print('Vanilla')
+        S_calc = np.array(scatter.scatter(pro, timing=True))
+        print(S_calc[:10])
     print('Orientational average 1')
     S_calc_oa = np.array(scatter_oa.scatter(pro, timing=True))
-    print(S_calc[:10])
     print(S_calc_oa[:10])
     #print(S_calc[:5], S_calc_oa[:5])
     rel_diff_max = np.max(np.abs((S_calc_oa - S_calc) / S_calc))

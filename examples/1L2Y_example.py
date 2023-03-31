@@ -22,7 +22,7 @@ pro_coord, pro_ele = readPDB('1L2Y.pdb') # Or generate numpy arrays yourself
 # and any kind of lists as elements
 pro = Molecule(coordinates=pro_coord, elements=pro_ele)
 
-scatter = XS.Scatter()
+scatter = XS.Scatter(use_oa=0)
 S_calc = scatter.scatter(pro, timing=True)
 S_calc = scatter.scatter(pro, timing=True) # Second time is much faster
 
