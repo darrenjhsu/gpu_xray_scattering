@@ -18,7 +18,7 @@ __global__ void FF_calc (
     // Calculate the non-SASA part of form factors per element
 
     __shared__ float q_pt, q_WK;
-    __shared__ float FF_pt[99]; // num_ele + 1, the last one for water.
+    __shared__ float FF_pt[98]; // num_ele + 1, the last one for water.
     __shared__ float WK_s[1078]; 
     if (blockIdx.x >= num_q) return; // out of q range
     for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
@@ -31,7 +31,7 @@ __global__ void FF_calc (
         __syncthreads();
 
         // Calculate Form factor for this block (or q vector)
-        for (int jj = threadIdx.x; jj < num_ele + 1; jj += blockDim.x) {
+        for (int jj = threadIdx.x; jj < num_ele; jj += blockDim.x) {
             FF_pt[jj] = WK_s[jj*11+5];
             // The part is for excluded volume
             //FF_pt[jj] -= C1_PI_43_rho * powf(vdW_s[jj],3.0) * exp(-PI * vdW_s[jj] * vdW_s[jj] * q_WK * q_WK);
@@ -152,10 +152,8 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa (
     // raster of q points
     // if user set num_q_raster > 1024,
     // it'll get reduced to 1024 before the call
-    __shared__ float q_raster[3072];
-    __shared__ float L;
-    
-    L = sqrt(num_q_raster * PI);
+
+    float L = sqrt(num_q_raster * PI);
 
     for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
 
@@ -169,16 +167,9 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa (
             float yu = sin(p) * sin(t);
             float zu = cos(p);
             // q raster points
-            q_raster[3*jj] = q_pt * xu;
-            q_raster[3*jj+1] = q_pt * yu;
-            q_raster[3*jj+2] = q_pt * zu;
-        }
-        __syncthreads();
-        for (int jj = threadIdx.x; jj < num_q_raster; jj += blockDim.x) {
-            // for every atom jj
-            float qx = q_raster[3*jj];
-            float qy = q_raster[3*jj+1];
-            float qz = q_raster[3*jj+2];
+            float qx = q_pt * xu;
+            float qy = q_pt * yu;
+            float qz = q_pt * zu;
             float amp_cos = 0.0; // this q and this q raster point, summed over all atoms
             float amp_sin = 0.0; // this q and this q raster point, summed over all atoms
             for (int kk = 0; kk < num_atom; kk++) {
@@ -186,7 +177,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_oa (
                 float qrx = -coord[3*kk] * qx;
                 float qry = -coord[3*kk+1] * qy;
                 float qrz = -coord[3*kk+2] * qz;
-                float qr = qrx+qry+qrz;
+                float qr = qrx + qry + qrz;
                 amp_cos += FF * cos(qr);
                 amp_sin += FF * sin(qr);
             }
