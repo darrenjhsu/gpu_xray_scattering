@@ -3,6 +3,7 @@ import numpy as np
 import time
 from .xs_helper import xray_scatter, cross_xray_scatter 
 from array import array
+from .Molecule import Molecule
 
 class Scatter:
     def __init__(self, q=np.linspace(0, 1, 200), num_q_raster=1024, use_oa=1, centering=True):
@@ -41,16 +42,20 @@ class Scatter:
         if timing:
             print(f'Elapsed time = {(t1-t0)*1000:.3f} ms')
 
-        return S_calc
+        return np.array(S_calc)
 
     def cross_scatter(self, protein=None, prior=None, weight=None, trial=None, timing=False):
    
         # protein is a Molecule object, with a molecule of M atoms and their element information
-        # prior is a numpy array of N*3 coordinate
+        # prior is a numpy array of N*3 coordinate or a Molecule object
         # weight is a N vector, denoting the weights of each prior point
-        # trial is a numpy array of T*3 coordinate
-        # prior and trial are treated as pseudo-carbon atoms (using its form factor) - can change
-        # prior is "fraction of carbon atoms" and trial is always "one carbon atom"
+        # trial is a numpy array of T*3 coordinate or a Molecule object
+        # If prior or trial is numpy array:
+        #   prior and trial are treated as pseudo-carbon atoms (using its form factor) - can change
+        #   prior is "fraction of carbon atoms" and trial is always "one carbon atom"
+        # if prior or trial is Molecule:
+        #   prior and trial are treated as regular molecules 
+        #   their elements are passed to scattering calculation
         # Downstream math figures out how to scale trial to fit data, and add/subtract the prior weights
 
         if protein is None or prior is None or trial is None:
@@ -58,13 +63,21 @@ class Scatter:
             return None
 
         # Concatenate protein and prior coordinates
-        coords1 = np.vstack([protein.coordinates, prior.coordinates])
+        if isinstance(prior, Molecule):
+            coords1 = np.vstack([protein.coordinates, prior.coordinates])
+            ele1 = np.concatenate([protein.electrons - 1, prior.electrons - 1])
+        else:
+            coords1 = np.vstack([protein.coordinates, prior])
+            ele1 = np.concatenate([protein.electrons - 1, np.ones(len(prior)) * 5])
         # prior points are treated as carbons
-        ele1 = np.concatenate([protein.electrons - 1, np.ones(len(prior)) * 5])
 
-        coords2 = trial.coordinates
+        if isinstance(trial, Molecule):
+            coords2 = trial.coordinates
+            ele2 = trial.electrons - 1
+        else:
+            coords2 = trial
+            ele2 = np.ones(len(trial)) * 5
         # trial points are treated as carbons as well
-        ele2 = np.ones(len(trial)) * 5
         
         # array-ize np arrays
         coords1_a = array('f', coords1.flatten())
@@ -76,11 +89,12 @@ class Scatter:
         q_a = array('f', self.q)
 
         t0 = time.time()
-        S_calc = cross_xray_scatter(coords1_a, coord2_a, ele1_a, ele2_a, weight_a, q_a, 
+        S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, weight_a, q_a, 
                                     num_q_raster=self.num_q_raster)
         t1 = time.time()
         
         if timing:
             print(f'Elapsed time = {(t1-t0)*1000:.3f} ms')
 
-        return S_calc
+        return np.array(S_calc[0]), np.array(S_calc[1]), np.array(S_calc[2])
+

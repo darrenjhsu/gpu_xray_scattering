@@ -214,8 +214,7 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
     int num_atom1,   
     int num_atom2,   
     int num_q,
-    int num_ele1,   
-    int num_ele2,   
+    int num_ele,   
     float *S_calcc1, 
     float *S_calcc2, 
     float *S_calcc12, 
@@ -253,8 +252,6 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
             float amp_sin1 = 0.0; // this q and this q raster point, summed over all atoms
             float amp_cos2 = 0.0; // this q and this q raster point, summed over all atoms
             float amp_sin2 = 0.0; // this q and this q raster point, summed over all atoms
-            float cross_cos12 = 0.0; // this q and this q raster point, summed over all atoms
-            float cross_sin12 = 0.0; // this q and this q raster point, summed over all atoms
             for (int kk = 0; kk < num_atom1; kk++) {
                 float FF1 = FF_full1[ii * num_atom1_1024 + kk];
                 float W1 = weight[kk];
@@ -264,23 +261,19 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
                 float qr1 = qrx1 + qry1 + qrz1;
                 amp_cos1 += W1 * FF1 * cos(qr1);
                 amp_sin1 += W1 * FF1 * sin(qr1);
-                for (int ll = 0; ll < num_atom2; ll++) {
-                    float FF2 = FF_full2[ii * num_atom2_1024 + ll];
-                    float qrx2 = -coord2[3*ll] * qx;
-                    float qry2 = -coord2[3*ll+1] * qy;
-                    float qrz2 = -coord2[3*ll+2] * qz;
-                    float qr2 = qrx2 + qry2 + qrz2;
-                    cross_cos12 += 2.0 * W1 * FF1 * FF2 * cos(qr1) * cos(qr2);
-                    cross_sin12 += 2.0 * W1 * FF1 * FF2 * sin(qr1) * sin(qr2);
-                    amp_cos2 += FF2 * cos(qr2);
-                    amp_sin2 += FF2 * sin(qr2);
-                }
             }
-            amp_cos2 /= float(num_atom1);
-            amp_sin2 /= float(num_atom1);
+            for (int ll = 0; ll < num_atom2; ll++) {
+                float FF2 = FF_full2[ii * num_atom2_1024 + ll];
+                float qrx2 = -coord2[3*ll] * qx;
+                float qry2 = -coord2[3*ll+1] * qy;
+                float qrz2 = -coord2[3*ll+2] * qz;
+                float qr2 = qrx2 + qry2 + qrz2;
+                amp_cos2 += FF2 * cos(qr2);
+                amp_sin2 += FF2 * sin(qr2);
+            }
             S_calcc1[ii*num_q_raster2+jj] = (amp_cos1 * amp_cos1 + amp_sin1 * amp_sin1) / float(num_q_raster);
             S_calcc2[ii*num_q_raster2+jj] = (amp_cos2 * amp_cos2 + amp_sin2 * amp_sin2) / float(num_q_raster);
-            S_calcc12[ii*num_q_raster2+jj] = (cross_cos12 + cross_sin12) / float(num_q_raster);
+            S_calcc12[ii*num_q_raster2+jj] = 2.0 * (amp_cos1 * amp_cos2 + amp_sin1 * amp_sin2) / float(num_q_raster);
         }
         
         // Tree-like summation of S_calcc to get S_calc

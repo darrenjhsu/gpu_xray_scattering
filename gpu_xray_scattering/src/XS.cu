@@ -157,21 +157,6 @@ void xray_scattering (
             d_FF_full,
             num_q_raster,
             num_q_raster2);
-    } else {
-        printf("Using orientational averaging method 2\n");
-        scat_calc_oa2<<<num_q, 1024>>>(
-            d_coord, 
-            d_Ele,
-            d_q, 
-            d_S_calc, 
-            num_atom,  
-            num_q,     
-            num_ele,  
-            d_S_calcc, 
-            num_atom1024, 
-            d_FF_full,
-            num_q_raster,
-            num_q_raster2);
     }
     cudaDeviceSynchronize();
     error = cudaGetLastError();

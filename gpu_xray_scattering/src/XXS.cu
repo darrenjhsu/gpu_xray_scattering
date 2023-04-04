@@ -62,10 +62,9 @@ void cross_xray_scattering (
     int size_coord1      = 3 * num_atom1 * sizeof(float);
     int size_coord2      = 3 * num_atom2 * sizeof(float);
     int size_atom1       = num_atom1 * sizeof(int);
-    int size_atom1f       = num_atom1 * sizeof(float);
+    int size_atom1f      = num_atom1 * sizeof(float);
     int size_atom2       = num_atom2 * sizeof(int);
     int size_q           = num_q * sizeof(float); 
-    int size_qxatom2     = num_q2 * 1024 * sizeof(float);
     int size_qxqraster2  = num_q2 * num_q_raster2 * sizeof(float);
     int size_FF_table    = (num_ele) * num_q * sizeof(float);
     int size_FF_full1    = num_q * num_atom1_1024 * sizeof(float);
@@ -88,7 +87,7 @@ void cross_xray_scattering (
     cudaMalloc((void **)&d_S_calcc12,   size_qxqraster2);
     cudaMalloc((void **)&d_FF_table,    size_FF_table);
     cudaMalloc((void **)&d_FF_full1,    size_FF_full1);
-    cudaMalloc((void **)&d_FF_full1,    size_FF_full2);
+    cudaMalloc((void **)&d_FF_full2,    size_FF_full2);
     cudaMalloc((void **)&d_WK,          size_WK);
 
     // Initialize some matrices
@@ -134,20 +133,20 @@ void cross_xray_scattering (
 
     // Adding the surface area contribution. From this point every atom has a different form factor.
     create_FF_full_FoXS<<<num_q, 1024>>>(
-        d_FF_table1, 
+        d_FF_table, 
         d_Ele1, 
-        d_FF_full, 
+        d_FF_full1, 
         num_q, 
-        num_ele1, 
+        num_ele, 
         num_atom1, 
         num_atom1_1024);
 
     create_FF_full_FoXS<<<num_q, 1024>>>(
-        d_FF_table2,
+        d_FF_table,
         d_Ele2,
-        d_FF_full, 
+        d_FF_full2, 
         num_q,
-        num_ele2, 
+        num_ele,
         num_atom2, 
         num_atom2_1024);
 
@@ -174,8 +173,7 @@ void cross_xray_scattering (
         num_atom1,
         num_atom2,
         num_q,     
-        num_ele1,
-        num_ele2,
+        num_ele,
         d_S_calcc1, 
         d_S_calcc2, 
         d_S_calcc12, 
