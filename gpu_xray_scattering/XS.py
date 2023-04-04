@@ -1,7 +1,7 @@
 
 import numpy as np
 import time
-from .xs_helper import xray_scatter 
+from .xs_helper import xray_scatter, cross_xray_scatter 
 from array import array
 
 class Scatter:
@@ -43,3 +43,44 @@ class Scatter:
 
         return S_calc
 
+    def cross_scatter(self, protein=None, prior=None, weight=None, trial=None, timing=False):
+   
+        # protein is a Molecule object, with a molecule of M atoms and their element information
+        # prior is a numpy array of N*3 coordinate
+        # weight is a N vector, denoting the weights of each prior point
+        # trial is a numpy array of T*3 coordinate
+        # prior and trial are treated as pseudo-carbon atoms (using its form factor) - can change
+        # prior is "fraction of carbon atoms" and trial is always "one carbon atom"
+        # Downstream math figures out how to scale trial to fit data, and add/subtract the prior weights
+
+        if protein is None or prior is None or trial is None:
+            print("No input, return None")
+            return None
+
+        # Concatenate protein and prior coordinates
+        coords1 = np.vstack([protein.coordinates, prior.coordinates])
+        # prior points are treated as carbons
+        ele1 = np.concatenate([protein.electrons - 1, np.ones(len(prior)) * 5])
+
+        coords2 = trial.coordinates
+        # trial points are treated as carbons as well
+        ele2 = np.ones(len(trial)) * 5
+        
+        # array-ize np arrays
+        coords1_a = array('f', coords1.flatten())
+        coords2_a = array('f', coords2.flatten())
+        # protein has full weight for all its atoms, while the prior has fraction weights as input from user
+        weight_a = array('f', np.concatenate([np.ones(len(protein.coordinates)), weight]))
+        ele1_a = array('I', ele1.astype(int))
+        ele2_a = array('I', ele2.astype(int))
+        q_a = array('f', self.q)
+
+        t0 = time.time()
+        S_calc = cross_xray_scatter(coords1_a, coord2_a, ele1_a, ele2_a, weight_a, q_a, 
+                                    num_q_raster=self.num_q_raster)
+        t1 = time.time()
+        
+        if timing:
+            print(f'Elapsed time = {(t1-t0)*1000:.3f} ms')
+
+        return S_calc
