@@ -41,10 +41,10 @@ class Scatter:
         
         if timing:
             print(f'Elapsed time = {(t1-t0)*1000:.3f} ms')
-
+        print(np.array(S_calc).shape)
         return np.array(S_calc)
 
-    def cross_scatter(self, protein=None, prior=None, weight=None, trial=None, timing=False):
+    def cross_scatter(self, protein=None, prior=np.empty((0, 3)), weight_p=np.empty(0), trial=None, weight_t=None, timing=False):
    
         # protein is a Molecule object, with a molecule of M atoms and their element information
         # prior is a numpy array of N*3 coordinate or a Molecule object
@@ -57,6 +57,7 @@ class Scatter:
         #   prior and trial are treated as regular molecules 
         #   their elements are passed to scattering calculation
         # Downstream math figures out how to scale trial to fit data, and add/subtract the prior weights
+        # Returns S_calc_pro, S_calc_trial, S_calc_cross, where cross is NOT MULTIPLIED BY 2
 
         if protein is None or prior is None or trial is None:
             print("No input, return None")
@@ -83,13 +84,19 @@ class Scatter:
         coords1_a = array('f', coords1.flatten())
         coords2_a = array('f', coords2.flatten())
         # protein has full weight for all its atoms, while the prior has fraction weights as input from user
-        weight_a = array('f', np.concatenate([np.ones(len(protein.coordinates)), weight]))
+        weight1_a = array('f', np.concatenate([np.ones(len(protein.coordinates)), weight_p]))
+        if weight_t is not None:
+            weight2_a = array('f', weight_t)
+        elif isinstance(trial, Molecule):
+            weight2_a = array('f', np.ones(len(trial.electrons)))
+        else:
+            weight2_a = array('f', np.ones(len(trial)))
         ele1_a = array('I', ele1.astype(int))
         ele2_a = array('I', ele2.astype(int))
         q_a = array('f', self.q)
 
         t0 = time.time()
-        S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, weight_a, q_a, 
+        S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, weight1_a, weight2_a, q_a, 
                                     num_q_raster=self.num_q_raster)
         t1 = time.time()
         

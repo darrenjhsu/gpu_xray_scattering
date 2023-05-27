@@ -206,7 +206,8 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
     float *coord2, 
     int *Ele1,
     int *Ele2,
-    float *weight,
+    float *weight1,
+    float *weight2,
     float *q,
     float *S_calc1, 
     float *S_calc2, 
@@ -218,8 +219,8 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
     float *S_calcc1, 
     float *S_calcc2, 
     float *S_calcc12, 
-    int num_atom1_1024,
-    int num_atom2_1024,
+    int num_atom1_pad,
+    int num_atom2_pad,
     float *FF_full1,
     float *FF_full2,
     int num_q_raster,
@@ -250,11 +251,9 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
             float qz = q_pt * zu;
             float amp_cos1 = 0.0; // this q and this q raster point, summed over all atoms
             float amp_sin1 = 0.0; // this q and this q raster point, summed over all atoms
-            float amp_cos2 = 0.0; // this q and this q raster point, summed over all atoms
-            float amp_sin2 = 0.0; // this q and this q raster point, summed over all atoms
             for (int kk = 0; kk < num_atom1; kk++) {
-                float FF1 = FF_full1[ii * num_atom1_1024 + kk];
-                float W1 = weight[kk];
+                float FF1 = FF_full1[ii * num_atom1_pad + kk];
+                float W1 = weight1[kk];
                 float qrx1 = -coord1[3*kk] * qx;
                 float qry1 = -coord1[3*kk+1] * qy;
                 float qrz1 = -coord1[3*kk+2] * qz;
@@ -262,18 +261,21 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
                 amp_cos1 += W1 * FF1 * cos(qr1);
                 amp_sin1 += W1 * FF1 * sin(qr1);
             }
+            float amp_cos2 = 0.0; // this q and this q raster point, summed over all atoms
+            float amp_sin2 = 0.0; // this q and this q raster point, summed over all atoms
             for (int ll = 0; ll < num_atom2; ll++) {
-                float FF2 = FF_full2[ii * num_atom2_1024 + ll];
+                float FF2 = FF_full2[ii * num_atom2_pad + ll];
+                float W2 = weight2[ll];
                 float qrx2 = -coord2[3*ll] * qx;
                 float qry2 = -coord2[3*ll+1] * qy;
                 float qrz2 = -coord2[3*ll+2] * qz;
                 float qr2 = qrx2 + qry2 + qrz2;
-                amp_cos2 += FF2 * cos(qr2);
-                amp_sin2 += FF2 * sin(qr2);
+                amp_cos2 += W2 * FF2 * cos(qr2);
+                amp_sin2 += W2 * FF2 * sin(qr2);
             }
-            S_calcc1[ii*num_q_raster2+jj] = (amp_cos1 * amp_cos1 + amp_sin1 * amp_sin1) / float(num_q_raster);
-            S_calcc2[ii*num_q_raster2+jj] = (amp_cos2 * amp_cos2 + amp_sin2 * amp_sin2) / float(num_q_raster);
-            S_calcc12[ii*num_q_raster2+jj] = 2.0 * (amp_cos1 * amp_cos2 + amp_sin1 * amp_sin2) / float(num_q_raster);
+            S_calcc1[ii*num_q_raster2+jj] = amp_cos1 * amp_cos1 + amp_sin1 * amp_sin1; 
+            S_calcc2[ii*num_q_raster2+jj] = amp_cos2 * amp_cos2 + amp_sin2 * amp_sin2;
+            S_calcc12[ii*num_q_raster2+jj] = amp_cos1 * amp_cos2 + amp_sin1 * amp_sin2;
         }
         
         // Tree-like summation of S_calcc to get S_calc
@@ -283,12 +285,14 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
                 S_calcc1[ii * num_q_raster2 + iAccum] += S_calcc1[ii * num_q_raster2 + stride + iAccum];
             }
         }
+        __syncthreads();
         for (int stride = num_q_raster2 / 2; stride > 0; stride >>= 1) {
             __syncthreads();
             for (int iAccum = threadIdx.x; iAccum < stride; iAccum += blockDim.x) {
                 S_calcc2[ii * num_q_raster2 + iAccum] += S_calcc2[ii * num_q_raster2 + stride + iAccum];
             }
         }
+        __syncthreads();
         for (int stride = num_q_raster2 / 2; stride > 0; stride >>= 1) {
             __syncthreads();
             for (int iAccum = threadIdx.x; iAccum < stride; iAccum += blockDim.x) {
@@ -297,9 +301,9 @@ __global__ void __launch_bounds__(1024,2) scat_calc_xoa (
         }
         __syncthreads();
         
-        S_calc1[ii] = S_calcc1[ii * num_q_raster2];
-        S_calc2[ii] = S_calcc2[ii * num_q_raster2];
-        S_calc12[ii] = S_calcc12[ii * num_q_raster2];
+        S_calc1[ii] = S_calcc1[ii * num_q_raster2] / float(num_q_raster);
+        S_calc2[ii] = S_calcc2[ii * num_q_raster2] / float(num_q_raster);
+        S_calc12[ii] = S_calcc12[ii * num_q_raster2] / float(num_q_raster);
         __syncthreads();
 
 

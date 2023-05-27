@@ -18,7 +18,8 @@ void cross_xray_scattering (
     float *coord2,
     int *Ele1,      // Element
     int *Ele2,
-    float *weight,   // Weights of the protein and prior points
+    float *weight1,   // Weights of the protein and prior points
+    float *weight2,   // Weights of the protein and prior points
     int num_q,       // number of q vector points
     float *q,        // q vector        Nq
     float *S_calc1,   // scattering intensity to be returned, Nq
@@ -31,8 +32,8 @@ void cross_xray_scattering (
     gettimeofday(&tv1, NULL);
 
     // In this code pointers with d_ are device pointers. 
-    int num_atom1_1024 = (num_atom1 + 1023) / 1024 * 1024;
-    int num_atom2_1024 = (num_atom2 + 1023) / 1024 * 1024;
+    int num_atom1_pad = (num_atom1 + 512) / 512 * 512;
+    int num_atom2_pad = (num_atom2 + 31) / 32 * 32;
     int num_q2        = (num_q + 31) / 32 * 32;
     int num_q_raster2 = (num_q_raster + 1023) / 1024 * 1024;
 
@@ -42,7 +43,8 @@ void cross_xray_scattering (
     float *d_coord2;
     int   *d_Ele1;            // Element list.
     int   *d_Ele2;
-    float *d_weight;
+    float *d_weight1;
+    float *d_weight2;
     float *d_q;              // q vector
     float *d_S_calc1;         // Calculated scattering curve
     float *d_S_calcc1;        // Some intermediate matrices
@@ -64,11 +66,12 @@ void cross_xray_scattering (
     int size_atom1       = num_atom1 * sizeof(int);
     int size_atom1f      = num_atom1 * sizeof(float);
     int size_atom2       = num_atom2 * sizeof(int);
+    int size_atom2f      = num_atom2 * sizeof(float);
     int size_q           = num_q * sizeof(float); 
     int size_qxqraster2  = num_q2 * num_q_raster2 * sizeof(float);
     int size_FF_table    = (num_ele) * num_q * sizeof(float);
-    int size_FF_full1    = num_q * num_atom1_1024 * sizeof(float);
-    int size_FF_full2    = num_q * num_atom2_1024 * sizeof(float);
+    int size_FF_full1    = num_q * num_atom1_pad * sizeof(float);
+    int size_FF_full2    = num_q * num_atom2_pad * sizeof(float);
     int size_WK          = 11 * num_ele * sizeof(float);
 
 
@@ -77,7 +80,8 @@ void cross_xray_scattering (
     cudaMalloc((void **)&d_coord2,      size_coord2); // 40 KB
     cudaMalloc((void **)&d_Ele1,        size_atom1);
     cudaMalloc((void **)&d_Ele2,        size_atom2);
-    cudaMalloc((void **)&d_weight,      size_atom1f);
+    cudaMalloc((void **)&d_weight1,     size_atom1f);
+    cudaMalloc((void **)&d_weight2,     size_atom2f);
     cudaMalloc((void **)&d_q,           size_q);
     cudaMalloc((void **)&d_S_calc1,     size_q);
     cudaMalloc((void **)&d_S_calc2,     size_q);
@@ -107,7 +111,8 @@ void cross_xray_scattering (
     cudaMemcpy(d_coord2,     coord2,     size_coord2, cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele1,       Ele1,       size_atom1,  cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele2,       Ele2,       size_atom2,  cudaMemcpyHostToDevice);
-    cudaMemcpy(d_weight,     weight,     size_atom1f, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_weight1,    weight1,    size_atom1f, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_weight2,    weight2,    size_atom2f, cudaMemcpyHostToDevice);
     cudaMemcpy(d_q,          q,          size_q,      cudaMemcpyHostToDevice);
     cudaMemcpy(d_WK,         WK,         size_WK,     cudaMemcpyHostToDevice);
 
@@ -139,7 +144,7 @@ void cross_xray_scattering (
         num_q, 
         num_ele, 
         num_atom1, 
-        num_atom1_1024);
+        num_atom1_pad);
 
     create_FF_full_FoXS<<<num_q, 1024>>>(
         d_FF_table,
@@ -148,7 +153,7 @@ void cross_xray_scattering (
         num_q,
         num_ele,
         num_atom2, 
-        num_atom2_1024);
+        num_atom2_pad);
 
     cudaDeviceSynchronize();
     error = cudaGetLastError();
@@ -159,13 +164,14 @@ void cross_xray_scattering (
     }
 
     // Actually calculating scattering pattern. This kernel is for single snapshot  
-    printf("Using orientational averaging method 1\n");
+    //printf("Using orientational averaging method 1\n");
     scat_calc_xoa<<<num_q, 1024>>>(
         d_coord1, 
         d_coord2,
         d_Ele1,
         d_Ele2,
-        d_weight,
+        d_weight1,
+        d_weight2,
         d_q, 
         d_S_calc1, 
         d_S_calc2, 
@@ -177,8 +183,8 @@ void cross_xray_scattering (
         d_S_calcc1, 
         d_S_calcc2, 
         d_S_calcc12, 
-        num_atom1_1024,
-        num_atom2_1024,
+        num_atom1_pad,
+        num_atom2_pad,
         d_FF_full1,
         d_FF_full2,
         num_q_raster,
@@ -208,7 +214,8 @@ void cross_xray_scattering (
     cudaFree(d_coord2); 
     cudaFree(d_Ele1); 
     cudaFree(d_Ele2); 
-    cudaFree(d_weight); 
+    cudaFree(d_weight1); 
+    cudaFree(d_weight2); 
     cudaFree(d_q);
     cudaFree(d_S_calc1); 
     cudaFree(d_S_calc2); 
