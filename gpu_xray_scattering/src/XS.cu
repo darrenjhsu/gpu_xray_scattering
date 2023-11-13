@@ -14,12 +14,14 @@ extern "C" {
 void xray_scattering (
     int num_atom,    // number of atoms Na
     float *coord,    // coordinates     3Na
-    int *Ele,      // Element
+    int *Ele,        // Element         Na
+    float *vdW,      // vdW as reported by denss, Na
     int num_q,       // number of q vector points
     float *q,        // q vector        Nq
     float *S_calc,   // scattering intensity to be returned, Nq
     int use_oa,      // do orientational averaging literally (calls scat_calc_oa)
-    int num_q_raster // number of q_raster points when using scat_calc_oa
+    int num_q_raster,// number of q_raster points when using scat_calc_oa
+    float rho
 ) {
 // This function is called by tclforce script from NAMD. Note that it is only executed every delta_t steps.
     struct timeval tv1, tv2;
@@ -36,6 +38,7 @@ void xray_scattering (
     float *d_coord;          // Coordinates 3 x num_atom
 
     int   *d_Ele;            // Element list.
+    float *d_vdW;            // Element list.
     float *d_q;              // q vector
     float *d_S_calc;         // Calculated scattering curve
     float *d_S_calcc;        // Some intermediate matrices
@@ -45,7 +48,6 @@ void xray_scattering (
     float *d_FF_table,       // Form factors for each atom type at each q
           *d_FF_full;        /* Form factors for each atom at each q, 
                                 considering the SASA an atom has. */
-    
     
     // set various memory chunk sizes
     int size_coord       = 3 * num_atom * sizeof(float);
@@ -62,6 +64,7 @@ void xray_scattering (
     // Allocate cuda memories
     cudaMalloc((void **)&d_coord,      size_coord); // 40 KB
     cudaMalloc((void **)&d_Ele,        size_atom);
+    cudaMalloc((void **)&d_vdW,        size_atomf);
     cudaMalloc((void **)&d_q,          size_q);
     cudaMalloc((void **)&d_S_calc,     size_q);
     if (use_oa == 0) {
@@ -87,6 +90,7 @@ void xray_scattering (
     // Copy necessary data
     cudaMemcpy(d_coord,      coord,      size_coord, cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele,        Ele,        size_atom,  cudaMemcpyHostToDevice);
+    cudaMemcpy(d_vdW,        vdW,        size_atomf, cudaMemcpyHostToDevice);
     cudaMemcpy(d_q,          q,          size_q,     cudaMemcpyHostToDevice);
     cudaMemcpy(d_WK,         WK,         size_WK,    cudaMemcpyHostToDevice);
 
@@ -102,23 +106,20 @@ void xray_scattering (
 
     // Calculate the non-varying part of the form factor.
     // In the future this can be done pre-simulation.
-    FF_calc<<<num_q, 32>>>(
+    FF_calc<<<num_q, 1024>>>(
         d_q, 
-        d_WK, 
+        d_WK,
+        d_vdW,
+        d_Ele,
+        d_FF_table,
+        d_FF_full,
         num_q, 
         num_ele, 
-        d_FF_table
+        num_atom,
+        num_atom1024,
+        rho
         );
 
-    // Adding the surface area contribution. From this point every atom has a different form factor.
-    create_FF_full_FoXS<<<num_q, 1024>>>(
-        d_FF_table, 
-        d_Ele, 
-        d_FF_full, 
-        num_q, 
-        num_ele, 
-        num_atom, 
-        num_atom1024);
 
     cudaDeviceSynchronize();
     error = cudaGetLastError();
@@ -184,6 +185,7 @@ void xray_scattering (
 
     cudaFree(d_coord); 
     cudaFree(d_Ele); 
+    cudaFree(d_vdW); 
     cudaFree(d_q);
     cudaFree(d_S_calc); 
     cudaFree(d_S_calcc); 

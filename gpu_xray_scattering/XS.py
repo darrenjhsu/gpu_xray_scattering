@@ -12,31 +12,36 @@ class Scatter:
         self.num_q_raster = num_q_raster
         self.centering = centering
 
-    def scatter(self, protein=None, ligand=None, timing=False):
+    def scatter(self, protein=None, ligand=None, rho=0.334, timing=False):
         if protein is None and ligand is None:
             print("No input, return None")
             return None
         # prepare coordinates from protein and optionally ligand
         coords = np.empty((0, 3))
         ele = np.empty(0)
+        vdW = np.empty(0)
         if protein is not None:
             coords = protein.coordinates
             ele = np.concatenate([ele, protein.electrons - 1])
+            vdW = np.concatenate([vdW, protein.radius])
         if ligand is not None:
             # do things with ligand
             coords = np.vstack([coords, ligand.coordinatess])
             ele = np.concatenate([ele, ligand.electrons - 1])
+            vdW = np.concatenate([vdW, ligand.radius])
         if self.centering:
             coords = coords - coords.mean(0)            
         
         # array-ize np arrays
         coords_a = array('f', coords.flatten())
         ele_a = array('I', ele.astype(int))
+        vdW_a = array('f', vdW.astype(float))
         q_a = array('f', self.q)
-
+        
+        # TODO: Add input vdW determined by denss
         t0 = time.time()
-        S_calc = xray_scatter(coords_a, ele_a, q_a, 
-                              use_oa=self.use_oa, num_q_raster=self.num_q_raster)
+        S_calc = xray_scatter(coords_a, ele_a, vdW_a, q_a, 
+                              use_oa=self.use_oa, num_q_raster=self.num_q_raster, rho=rho)
         t1 = time.time()
         
         if timing:
@@ -44,7 +49,7 @@ class Scatter:
         print(np.array(S_calc).shape)
         return np.array(S_calc)
 
-    def cross_scatter(self, protein=None, prior=np.empty((0, 3)), weight_p=np.empty(0), trial=None, weight_t=None, timing=False):
+    def cross_scatter(self, protein=None, prior=np.empty((0, 3)), weight_p=np.empty(0), trial=None, weight_t=None, rho=0.334, timing=False):
    
         # protein is a Molecule object, with a molecule of M atoms and their element information
         # prior is a numpy array of N*3 coordinate or a Molecule object
@@ -67,17 +72,21 @@ class Scatter:
         if isinstance(prior, Molecule):
             coords1 = np.vstack([protein.coordinates, prior.coordinates])
             ele1 = np.concatenate([protein.electrons - 1, prior.electrons - 1])
+            vdW1 = np.concatenate([protein.radius, prior.radius])
         else:
             coords1 = np.vstack([protein.coordinates, prior])
             ele1 = np.concatenate([protein.electrons - 1, np.ones(len(prior)) * 5])
+            vdW1 = np.concatenate([protein.radius, np.ones(len(prior)) * 1.4])
         # prior points are treated as carbons
 
         if isinstance(trial, Molecule):
             coords2 = trial.coordinates
             ele2 = trial.electrons - 1
+            vdW2 = np.ones(len(ele2)) * 1.4
         else:
             coords2 = trial
             ele2 = np.ones(len(trial)) * 5
+            vdW2 = np.ones(len(ele2)) * 1.4
         # trial points are treated as carbons as well
         
         # array-ize np arrays
@@ -93,10 +102,13 @@ class Scatter:
             weight2_a = array('f', np.ones(len(trial)))
         ele1_a = array('I', ele1.astype(int))
         ele2_a = array('I', ele2.astype(int))
+        vdW1_a = array('f', vdW1.astype(float))
+        vdW2_a = array('f', vdW2.astype(float))
         q_a = array('f', self.q)
 
+        # TODO: Add input vdW determined by denss
         t0 = time.time()
-        S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, weight1_a, weight2_a, q_a, 
+        S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, vdW1_a, vdW2_a, weight1_a, weight2_a, q_a, 
                                     num_q_raster=self.num_q_raster)
         t1 = time.time()
         

@@ -8,19 +8,30 @@
 
 
 __global__ void FF_calc (
-    float *q, 
-    float *WK, 
-    int num_q, 
+    float *q,           // num_q
+    float *WK,          // (num_ele+1) * 11
+    float *vdW,         // num_atom, as reported by denss
+    int *Ele,           // num_atom
+    float *FF_table,    // num_q * (num_ele + 1)
+    float *FF_full,     // num_q * num_atom1024
+    int num_q,       
     int num_ele, 
-    float *FF_table
+    int num_atom, 
+    int num_atom1024,
+    float rho           // water base density in e/A^3, 0.334 by default
     ) {
 
-    // Calculate the non-SASA part of form factors per element
+    // Calculate the form factors per element, then per atom
 
     __shared__ float q_pt, q_WK;
     __shared__ float FF_pt[98]; // num_ele + 1, the last one for water.
     __shared__ float WK_s[1078]; 
+
+    float PI43 = 4.0 / 3.0 * PI;
+
     if (blockIdx.x >= num_q) return; // out of q range
+
+    // First part, calculate per element form factor in vacuo
     for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
         q_pt = q[ii];
         q_WK = q_pt / 4.0 / PI;
@@ -41,13 +52,30 @@ __global__ void FF_calc (
             FF_table[ii*(num_ele)+jj] = FF_pt[jj];
         }
     }
+    // Second part, exclude volumes based on 
+    for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
+        q_pt = q[ii];
+        q_WK = q_pt / 4.0 / PI;
+        for (int jj = threadIdx.x; jj < num_atom; jj += blockDim.x) {
+            int atomt = Ele[jj];
+            // vdW of this atom is adjusted by denss
+            float vdW_atom = vdW[jj];
+            // instead of fitting c1 as in FoXS, directly use rho and the adjusted vdW to calculate
+            // exclusion part as in Fraser, 1978 (second term of eq. 7)
+            float exclusion = PI43 * powf(vdW_atom, 3.0) * rho * exp(-PI * powf(PI43, 2.0/3.0) * vdW_atom * vdW_atom * q_WK * q_WK);
+            FF_full[ii*num_atom1024 + jj] = FF_pt[atomt] - exclusion;
+        }
+    }
 }
 
 
 __global__ void create_FF_full_FoXS (
-    float *FF_table, 
-    int *Ele, 
-    float *FF_full, 
+    float *FF_table, // Element-specific form factors
+    float c1,        // Exclusion parameter
+    float rho,       // Water base density in e/A^3
+    float *vdW,      // List of vdW per atom
+    int *Ele,        // Element index
+    float *FF_full,  // Output form factor table per atom
     int num_q, 
     int num_ele, 
     int num_atom, 

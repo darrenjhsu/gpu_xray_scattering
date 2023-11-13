@@ -18,6 +18,8 @@ void cross_xray_scattering (
     float *coord2,
     int *Ele1,      // Element
     int *Ele2,
+    float *vdW1, 
+    float *vdW2,
     float *weight1,   // Weights of the protein and prior points
     float *weight2,   // Weights of the protein and prior points
     int num_q,       // number of q vector points
@@ -25,7 +27,8 @@ void cross_xray_scattering (
     float *S_calc1,   // scattering intensity to be returned, Nq
     float *S_calc2,
     float *S_calc12,
-    int num_q_raster // number of q_raster points when using scat_calc_oa
+    int num_q_raster,// number of q_raster points when using scat_calc_oa
+    float rho
 ) {
 // This function is called by tclforce script from NAMD. Note that it is only executed every delta_t steps.
     struct timeval tv1, tv2;
@@ -43,6 +46,8 @@ void cross_xray_scattering (
     float *d_coord2;
     int   *d_Ele1;            // Element list.
     int   *d_Ele2;
+    float *d_vdW1;
+    float *d_vdW2;
     float *d_weight1;
     float *d_weight2;
     float *d_q;              // q vector
@@ -80,6 +85,8 @@ void cross_xray_scattering (
     cudaMalloc((void **)&d_coord2,      size_coord2); // 40 KB
     cudaMalloc((void **)&d_Ele1,        size_atom1);
     cudaMalloc((void **)&d_Ele2,        size_atom2);
+    cudaMalloc((void **)&d_vdW1,        size_atom1f);
+    cudaMalloc((void **)&d_vdW2,        size_atom2f);
     cudaMalloc((void **)&d_weight1,     size_atom1f);
     cudaMalloc((void **)&d_weight2,     size_atom2f);
     cudaMalloc((void **)&d_q,           size_q);
@@ -111,6 +118,8 @@ void cross_xray_scattering (
     cudaMemcpy(d_coord2,     coord2,     size_coord2, cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele1,       Ele1,       size_atom1,  cudaMemcpyHostToDevice);
     cudaMemcpy(d_Ele2,       Ele2,       size_atom2,  cudaMemcpyHostToDevice);
+    cudaMemcpy(d_vdW1,       vdW1,       size_atom1f, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_vdW2,       vdW2,       size_atom2f, cudaMemcpyHostToDevice);
     cudaMemcpy(d_weight1,    weight1,    size_atom1f, cudaMemcpyHostToDevice);
     cudaMemcpy(d_weight2,    weight2,    size_atom2f, cudaMemcpyHostToDevice);
     cudaMemcpy(d_q,          q,          size_q,      cudaMemcpyHostToDevice);
@@ -128,32 +137,33 @@ void cross_xray_scattering (
 
     // Calculate the non-varying part of the form factor.
     // In the future this can be done pre-simulation.
-    FF_calc<<<num_q, 32>>>(
+    FF_calc<<<num_q, 1024>>>(
         d_q, 
-        d_WK, 
+        d_WK,
+        d_vdW1,
+        d_Ele1,
+        d_FF_table,
+        d_FF_full1,
         num_q, 
         num_ele, 
-        d_FF_table
+        num_atom1,
+        num_atom1_pad,
+        rho
         );
 
-    // Adding the surface area contribution. From this point every atom has a different form factor.
-    create_FF_full_FoXS<<<num_q, 1024>>>(
-        d_FF_table, 
-        d_Ele1, 
-        d_FF_full1, 
+    FF_calc<<<num_q, 1024>>>(
+        d_q, 
+        d_WK,
+        d_vdW2,
+        d_Ele2,
+        d_FF_table,
+        d_FF_full2,
         num_q, 
         num_ele, 
-        num_atom1, 
-        num_atom1_pad);
-
-    create_FF_full_FoXS<<<num_q, 1024>>>(
-        d_FF_table,
-        d_Ele2,
-        d_FF_full2, 
-        num_q,
-        num_ele,
-        num_atom2, 
-        num_atom2_pad);
+        num_atom2,
+        num_atom2_pad,
+        rho
+        );
 
     cudaDeviceSynchronize();
     error = cudaGetLastError();
@@ -214,6 +224,8 @@ void cross_xray_scattering (
     cudaFree(d_coord2); 
     cudaFree(d_Ele1); 
     cudaFree(d_Ele2); 
+    cudaFree(d_vdW1); 
+    cudaFree(d_vdW2); 
     cudaFree(d_weight1); 
     cudaFree(d_weight2); 
     cudaFree(d_q);
