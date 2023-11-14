@@ -46,7 +46,7 @@ def xray_scatter(coord, ele, vdW, q,
 
     return c_S_calc[:]
 
-def cross_xray_scatter(coord1, coord2, ele1, ele2, vdW1, vdW2, weight1, weight2, q, num_q_raster=1024):
+def cross_xray_scatter(coord1, coord2, ele1, ele2, vdW1, vdW2, weight1, weight2, q, num_q_raster=1024, rho=0.334):
     
     assert len(coord1) == 3 * len(ele1) and len(coord2) == 3 * len(ele2)
     num_atom1 = len(ele1)
@@ -72,6 +72,6 @@ def cross_xray_scatter(coord1, coord2, ele1, ele2, vdW1, vdW2, weight1, weight2,
              c_weight1, c_weight2,
              c_int(num_q), c_q, 
              c_S_calc1, c_S_calc2, c_S_calc12,
-             c_int(num_q_raster))
+             c_int(num_q_raster), c_float(rho))
 
     return c_S_calc1[:], c_S_calc2[:], c_S_calc12[:]

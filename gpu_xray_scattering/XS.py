@@ -109,7 +109,7 @@ class Scatter:
         # TODO: Add input vdW determined by denss
         t0 = time.time()
         S_calc = cross_xray_scatter(coords1_a, coords2_a, ele1_a, ele2_a, vdW1_a, vdW2_a, weight1_a, weight2_a, q_a, 
-                                    num_q_raster=self.num_q_raster)
+                                    num_q_raster=self.num_q_raster, rho=rho)
         t1 = time.time()
         
         if timing:
