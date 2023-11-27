@@ -52,6 +52,7 @@ __global__ void FF_calc (
             FF_table[ii*(num_ele)+jj] = FF_pt[jj];
         }
     }
+    __syncthreads();
     // Second part, exclude volumes based on 
     for (int ii = blockIdx.x; ii < num_q; ii += gridDim.x) {
         q_pt = q[ii];
@@ -63,9 +64,12 @@ __global__ void FF_calc (
             // instead of fitting c1 as in FoXS, directly use rho and the adjusted vdW to calculate
             // exclusion part as in Fraser, 1978 (second term of eq. 7)
             float exclusion = PI43 * powf(vdW_atom, 3.0) * rho * exp(-PI * powf(PI43, 2.0/3.0) * vdW_atom * vdW_atom * q_WK * q_WK);
+            //float exclusion = PI43 * powf(vdW_atom, 3.0) * rho * exp(-PI * powf(PI43, 2.0/3.0) * vdW_atom * vdW_atom * q_pt * q_pt);
+            //float exclusion = PI43 * PI43 * powf(vdW_atom, 6.0) * rho * exp(-PI * powf(PI43, 2.0/3.0) * vdW_atom * vdW_atom * q_WK * q_WK);
             FF_full[ii*num_atom1024 + jj] = FF_pt[atomt] - exclusion;
         }
     }
+    __syncthreads();
 }
 
 

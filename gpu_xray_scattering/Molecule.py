@@ -55,6 +55,13 @@ class PDB(object):
         self.radius = None
         self.unique_radius = None
         self.unique_volume = None
+        self.modifiable_atom_types = ['H','C','N','O']
+        self.radii_sf = np.ones(len(self.modifiable_atom_types))
+        for i in range(len(self.modifiable_atom_types)):
+            if self.modifiable_atom_types[i] in radii_sf_dict.keys():
+                self.radii_sf[i] = radii_sf_dict[self.modifiable_atom_types[i]]
+            else:
+                self.radii_sf[i] = 1.0
 
     def read_pdb(self, filename, ignore_waters=True):
         self.natoms = 0
@@ -407,6 +414,23 @@ class PDB(object):
             charge = '%2s' % self.charge[i]
             records.append(['ATOM  ' + atomnum + '  ' + atomname + ' ' + resname + ' ' + chain + resnum + '    ' + x + y + z + o + b + '          ' + atomtype + charge])
         np.savetxt(filename, records, fmt='%80s'.encode('ascii'))
+    
+    def scale_radii(self, radii_sf=None):
+        """Scale all the modifiable atom type radii in the pdb"""
+        if radii_sf is None:
+            radii_sf = self.radii_sf
+        if self.radius is None:
+            self.radius = np.zeros(self.natoms)
+        for i in range(len(self.modifiable_atom_types)):
+            #if not self.explicitH:
+            #    if self.modifiable_atom_types[i]=='H':
+            #        self.exvolHradius = radii_sf[i] * self.unique_exvolHradius 
+            #    else:
+            #        self.radius[self.pdb.atomtype==self.modifiable_atom_types[i]] = radii_sf[i] * self.unique_radius[self.pdb.atomtype==self.modifiable_atom_types[i]]
+            #else:
+                self.exvolHradius = np.zeros(self.natoms)
+                self.radius[self.atomtype==self.modifiable_atom_types[i]] = radii_sf[i] * self.unique_radius[self.atomtype==self.modifiable_atom_types[i]]
+
 
 def sphere_volume_from_radius(R):
     V_sphere = 4*np.pi/3 * R**3
